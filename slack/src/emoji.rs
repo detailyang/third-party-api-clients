@@ -1,6 +1,5 @@
-use anyhow::Result;
-
 use crate::Client;
+use crate::ClientResult;
 
 pub struct Emoji {
     pub client: Client,
@@ -13,18 +12,26 @@ impl Emoji {
     }
 
     /**
-    * This function performs a `GET` to the `/emoji.list` endpoint.
-    *
-    * Lists custom emoji for a team.
-    *
-    * FROM: <https://api.slack.com/methods/emoji.list>
-    *
-    * **Parameters:**
-    *
-    * * `token: &str` -- Authentication token. Requires scope: `emoji:read`.
-    */
-    pub async fn list(&self) -> Result<crate::types::DndEndSchema> {
-        let url = "/emoji.list".to_string();
-        self.client.get(&url, None).await
+     * This function performs a `GET` to the `/emoji.list` endpoint.
+     *
+     * Lists custom emoji for a team.
+     *
+     * FROM: <https://api.slack.com/methods/emoji.list>
+     *
+     * **Parameters:**
+     *
+     * * `token: &str` -- Authentication token. Requires scope: `emoji:read`.
+     */
+    pub async fn list(&self) -> ClientResult<crate::types::DndEndSchema> {
+        let url = self.client.url("/emoji.list", None);
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
 }

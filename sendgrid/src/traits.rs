@@ -1,5 +1,6 @@
 #![allow(clippy::field_reassign_with_default)]
-use anyhow::{anyhow, Result};
+use crate::ClientError;
+use crate::ClientResult;
 
 #[async_trait::async_trait]
 pub trait MailOps {
@@ -14,7 +15,7 @@ pub trait MailOps {
         cc: &[String],
         bcc: &[String],
         from: &str,
-    ) -> Result<()>;
+    ) -> ClientResult<()>;
 }
 
 #[async_trait::async_trait]
@@ -30,19 +31,23 @@ impl MailOps for crate::mail_send::MailSend {
         ccs: &[String],
         bccs: &[String],
         from: &str,
-    ) -> Result<()> {
-        let mut mail: crate::types::PostMailSendRequest = Default::default();
-        mail.subject = subject.to_string();
-        mail.from = crate::types::FromEmailObject {
-            email: from.to_string(),
-            name: String::new(),
+    ) -> ClientResult<()> {
+        let mut mail = crate::types::PostMailSendRequest {
+            subject: subject.to_string(),
+            from: crate::types::FromEmailObject {
+                email: from.to_string(),
+                name: String::new(),
+            },
+            content: vec![crate::types::Content {
+                value: message.to_string(),
+                type_: "text/plain".to_string(),
+            }],
+            ..Default::default()
         };
-        mail.content = vec![crate::types::Content {
-            value: message.to_string(),
-            type_: "text/plain".to_string(),
-        }];
-        let mut p: crate::types::Personalizations = Default::default();
-        p.from = Some(mail.from.clone());
+        let mut p = crate::types::Personalizations {
+            from: Some(mail.from.clone()),
+            ..Default::default()
+        };
         for to in tos {
             p.to.push(crate::types::ReplyTo {
                 email: to.to_string(),
@@ -63,18 +68,25 @@ impl MailOps for crate::mail_send::MailSend {
         }
         mail.personalizations = vec![p];
 
+        let url = self.client.url("/mail/send", None);
         let resp = self
             .client
             .request_raw(
                 reqwest::Method::POST,
-                "/mail/send",
-                Some(reqwest::Body::from(serde_json::to_vec(&mail).unwrap())),
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(&mail).unwrap())),
+                    content_type: None,
+                },
             )
             .await?;
 
         match resp.status() {
             http::StatusCode::ACCEPTED => Ok(()),
-            s => Err(anyhow!("received response status: {:?}", s)),
+            s => Err(ClientError::HttpError {
+                status: s,
+                error: "Posting to /mail/send".to_string(),
+            }),
         }
     }
 }

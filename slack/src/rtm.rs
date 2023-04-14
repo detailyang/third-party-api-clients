@@ -1,6 +1,5 @@
-use anyhow::Result;
-
 use crate::Client;
+use crate::ClientResult;
 
 pub struct Rtm {
     pub client: Client,
@@ -13,23 +12,23 @@ impl Rtm {
     }
 
     /**
-    * This function performs a `GET` to the `/rtm.connect` endpoint.
-    *
-    * Starts a Real Time Messaging session.
-    *
-    * FROM: <https://api.slack.com/methods/rtm.connect>
-    *
-    * **Parameters:**
-    *
-    * * `token: &str` -- Authentication token. Requires scope: `rtm:stream`.
-    * * `batch_presence_aware: bool` -- Batch presence deliveries via subscription. Enabling changes the shape of `presence_change` events. See [batch presence](/docs/presence-and-status#batching).
-    * * `presence_sub: bool` -- Only deliver presence events when requested by subscription. See [presence subscriptions](/docs/presence-and-status#subscriptions).
-    */
+     * This function performs a `GET` to the `/rtm.connect` endpoint.
+     *
+     * Starts a Real Time Messaging session.
+     *
+     * FROM: <https://api.slack.com/methods/rtm.connect>
+     *
+     * **Parameters:**
+     *
+     * * `token: &str` -- Authentication token. Requires scope: `rtm:stream`.
+     * * `batch_presence_aware: bool` -- Batch presence deliveries via subscription. Enabling changes the shape of `presence_change` events. See [batch presence](/docs/presence-and-status#batching).
+     * * `presence_sub: bool` -- Only deliver presence events when requested by subscription. See [presence subscriptions](/docs/presence-and-status#subscriptions).
+     */
     pub async fn connect(
         &self,
         batch_presence_aware: bool,
         presence_sub: bool,
-    ) -> Result<crate::types::RtmConnectSchema> {
+    ) -> ClientResult<crate::types::RtmConnectSchema> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if batch_presence_aware {
             query_args.push((
@@ -41,8 +40,15 @@ impl Rtm {
             query_args.push(("presence_sub".to_string(), presence_sub.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/rtm.connect?{}", query_);
-
-        self.client.get(&url, None).await
+        let url = self.client.url(&format!("/rtm.connect?{}", query_), None);
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
 }

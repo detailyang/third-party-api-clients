@@ -1,6 +1,5 @@
-use anyhow::Result;
-
 use crate::Client;
+use crate::ClientResult;
 
 pub struct ChatScheduledMessages {
     pub client: Client,
@@ -13,21 +12,21 @@ impl ChatScheduledMessages {
     }
 
     /**
-    * This function performs a `GET` to the `/chat.scheduledMessages.list` endpoint.
-    *
-    * Returns a list of scheduled messages.
-    *
-    * FROM: <https://api.slack.com/methods/chat.scheduledMessages.list>
-    *
-    * **Parameters:**
-    *
-    * * `token: &str` -- Authentication token. Requires scope: `none`.
-    * * `channel: &str` -- The channel of the scheduled messages.
-    * * `latest: f64` -- A UNIX timestamp of the latest value in the time range.
-    * * `oldest: f64` -- A UNIX timestamp of the oldest value in the time range.
-    * * `limit: i64` -- Maximum number of original entries to return.
-    * * `cursor: &str` -- For pagination purposes, this is the `cursor` value returned from a previous call to `chat.scheduledmessages.list` indicating where you want to start this call from.
-    */
+     * This function performs a `GET` to the `/chat.scheduledMessages.list` endpoint.
+     *
+     * Returns a list of scheduled messages.
+     *
+     * FROM: <https://api.slack.com/methods/chat.scheduledMessages.list>
+     *
+     * **Parameters:**
+     *
+     * * `token: &str` -- Authentication token. Requires scope: `none`.
+     * * `channel: &str` -- The channel of the scheduled messages.
+     * * `latest: f64` -- A UNIX timestamp of the latest value in the time range.
+     * * `oldest: f64` -- A UNIX timestamp of the oldest value in the time range.
+     * * `limit: i64` -- Maximum number of original entries to return.
+     * * `cursor: &str` -- For pagination purposes, this is the `cursor` value returned from a previous call to `chat.scheduledmessages.list` indicating where you want to start this call from.
+     */
     pub async fn list(
         &self,
         channel: &str,
@@ -35,7 +34,7 @@ impl ChatScheduledMessages {
         oldest: f64,
         limit: i64,
         cursor: &str,
-    ) -> Result<crate::types::ChatScheduledMessagesListSchema> {
+    ) -> ClientResult<crate::types::ChatScheduledMessagesListSchema> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !channel.is_empty() {
             query_args.push(("channel".to_string(), channel.to_string()));
@@ -53,8 +52,17 @@ impl ChatScheduledMessages {
             query_args.push(("oldest".to_string(), oldest.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/chat.scheduledMessages.list?{}", query_);
-
-        self.client.get(&url, None).await
+        let url = self
+            .client
+            .url(&format!("/chat.scheduledMessages.list?{}", query_), None);
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
 }

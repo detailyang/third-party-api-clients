@@ -35,7 +35,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! octorust = "0.1.36"
+//! octorust = "0.3.2"
 //! ```
 //!
 //! ## Basic example
@@ -43,7 +43,7 @@
 //! Typical use will require intializing a `Client`. This requires
 //! a user agent string and set of `auth::Credentials`.
 //!
-//! ```
+//! ```rust
 //! use octorust::{auth::Credentials, Client};
 //!
 //! let github = Client::new(
@@ -55,7 +55,7 @@
 //! ```
 //!
 //! If you are a GitHub enterprise customer, you will want to create a client with the
-//! [Client#host](https://docs.rs/octorust/0.1.36/octorust/struct.Client.html#method.host) method.
+//! [Client#host_override](https://docs.rs/octorust/0.3.2/octorust/struct.Client.html#method.host_override) method.
 //!
 //! ## Feature flags
 //!
@@ -69,14 +69,14 @@
 //!
 //! ```toml
 //! [dependencies]
-//! octorust = { version = "0.1.36", features = ["httpcache"] }
+//! octorust = { version = "0.3.2", features = ["httpcache"] }
 //! ```
 //!
 //! Then use the `Client::custom` constructor to provide a cache implementation.
 //!
 //! Here is an example:
 //!
-//! ```
+//! ```rust
 //! use octorust::{auth::Credentials, Client};
 //! #[cfg(feature = "httpcache")]
 //! use octorust::http_cache::HttpCache;
@@ -86,7 +86,6 @@
 //!
 //! #[cfg(not(feature = "httpcache"))]
 //! let github = Client::custom(
-//!     "https://api.github.com",
 //!     concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION")),
 //!     Credentials::Token(
 //!       String::from("personal-access-token")
@@ -96,7 +95,6 @@
 //!
 //! #[cfg(feature = "httpcache")]
 //! let github = Client::custom(
-//!     "https://api.github.com",
 //!     concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION")),
 //!     Credentials::Token(
 //!       String::from("personal-access-token")
@@ -145,7 +143,6 @@
 //!
 //! #[cfg(not(feature = "httpcache"))]
 //! let github = Client::custom(
-//!     "https://api.github.com",
 //!     concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION")),
 //!     Credentials::InstallationToken(token_generator),
 //!     reqwest::Client::builder().build().unwrap(),
@@ -153,7 +150,6 @@
 //!
 //! #[cfg(feature = "httpcache")]
 //! let github = Client::custom(
-//!     "https://api.github.com",
 //!     concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION")),
 //!     Credentials::InstallationToken(token_generator),
 //!     reqwest::Client::builder().build().unwrap(),
@@ -168,6 +164,7 @@
 //! always up to the date with the OpenAPI spec and no longer requires manual
 //! contributions to add new endpoints.
 //!
+#![allow(clippy::derive_partial_eq_without_eq)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::nonstandard_macro_braces)]
 #![allow(clippy::large_enum_variant)]
@@ -239,17 +236,54 @@ pub mod search;
 pub mod secret_scanning;
 /// Interact with GitHub Teams.
 pub mod teams;
-#[cfg(test)]
-mod tests;
 pub mod types;
 /// Interact with and view information about users and also current user.
 pub mod users;
 #[doc(hidden)]
 pub mod utils;
 
-use anyhow::{anyhow, Error, Result};
+use thiserror::Error;
+type ClientResult<T> = Result<T, ClientError>;
 
-pub const DEFAULT_HOST: &str = "https://api.github.com";
+/// Errors returned by the client
+#[derive(Debug, Error)]
+pub enum ClientError {
+    // Github only
+    /// Ratelimited
+    #[error("Rate limited for the next {duration} seconds")]
+    RateLimited { duration: u64 },
+    /// JWT errors from auth.rs
+    #[error(transparent)]
+    JsonWebTokenError(#[from] jsonwebtoken::errors::Error),
+    /// IO Errors
+    #[cfg(feature = "httpcache")]
+    #[error(transparent)]
+    #[cfg(feature = "httpcache")]
+    IoError(#[from] std::io::Error),
+    /// URL Parsing Error
+    #[error(transparent)]
+    UrlParserError(#[from] url::ParseError),
+    /// Serde JSON parsing error
+    #[error(transparent)]
+    SerdeJsonError(#[from] serde_json::Error),
+    /// Errors returned by reqwest
+    #[error(transparent)]
+    ReqwestError(#[from] reqwest::Error),
+    /// Errors returned by reqwest::header
+    #[error(transparent)]
+    InvalidHeaderValue(#[from] reqwest::header::InvalidHeaderValue),
+    /// Errors returned by reqwest middleware
+    #[error(transparent)]
+    ReqwestMiddleWareError(#[from] reqwest_middleware::Error),
+    /// Generic HTTP Error
+    #[error("HTTP Error. Code: {status}, message: {error}")]
+    HttpError {
+        status: http::StatusCode,
+        error: String,
+    },
+}
+
+pub const FALLBACK_HOST: &str = "https://api.github.com";
 
 mod progenitor_support {
     use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
@@ -271,10 +305,26 @@ mod progenitor_support {
     }
 }
 
+#[derive(Debug, Default)]
+pub(crate) struct Message {
+    pub body: Option<reqwest::Body>,
+    pub content_type: Option<String>,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct RootDefaultServer {}
+
+impl RootDefaultServer {
+    pub fn default_url(&self) -> &str {
+        "https://api.github.com"
+    }
+}
+
 /// Entrypoint for interacting with the API client.
 #[derive(Clone)]
 pub struct Client {
     host: String,
+    host_override: Option<String>,
     agent: String,
     client: reqwest_middleware::ClientWithMiddleware,
     credentials: Option<crate::auth::Credentials>,
@@ -283,17 +333,8 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new<A, C>(agent: A, credentials: C) -> Result<Self>
+    pub fn new<A, C>(agent: A, credentials: C) -> ClientResult<Self>
     where
-        A: Into<String>,
-        C: Into<Option<crate::auth::Credentials>>,
-    {
-        Self::host(DEFAULT_HOST, agent, credentials)
-    }
-
-    pub fn host<H, A, C>(host: H, agent: A, credentials: C) -> Result<Self>
-    where
-        H: Into<String>,
         A: Into<String>,
         C: Into<Option<crate::auth::Credentials>>,
     {
@@ -302,16 +343,17 @@ impl Client {
             reqwest_retry::policies::ExponentialBackoff::builder().build_with_max_retries(3);
         let client = reqwest_middleware::ClientBuilder::new(http)
             // Trace HTTP requests. See the tracing crate to make use of these traces.
-            .with(reqwest_tracing::TracingMiddleware)
+            .with(reqwest_tracing::TracingMiddleware::default())
             // Retry failed requests.
-            .with(reqwest_retry::RetryTransientMiddleware::new_with_policy(
-                retry_policy,
+            .with(reqwest_conditional_middleware::ConditionalMiddleware::new(
+                reqwest_retry::RetryTransientMiddleware::new_with_policy(retry_policy),
+                |req: &reqwest::Request| req.try_clone().is_some(),
             ))
             .build();
+
         #[cfg(feature = "httpcache")]
         {
             Ok(Self::custom(
-                host,
                 agent,
                 credentials,
                 client,
@@ -320,25 +362,24 @@ impl Client {
         }
         #[cfg(not(feature = "httpcache"))]
         {
-            Ok(Self::custom(host, agent, credentials, client))
+            Ok(Self::custom(agent, credentials, client))
         }
     }
 
     #[cfg(feature = "httpcache")]
-    pub fn custom<H, A, CR>(
-        host: H,
+    pub fn custom<A, CR>(
         agent: A,
         credentials: CR,
         http: reqwest_middleware::ClientWithMiddleware,
         http_cache: crate::http_cache::BoxedHttpCache,
     ) -> Self
     where
-        H: Into<String>,
         A: Into<String>,
         CR: Into<Option<crate::auth::Credentials>>,
     {
         Self {
-            host: host.into(),
+            host: RootDefaultServer::default().default_url().to_string(),
+            host_override: None,
             agent: agent.into(),
             client: http,
             credentials: credentials.into(),
@@ -347,23 +388,51 @@ impl Client {
     }
 
     #[cfg(not(feature = "httpcache"))]
-    pub fn custom<H, A, CR>(
-        host: H,
+    pub fn custom<A, CR>(
         agent: A,
         credentials: CR,
         http: reqwest_middleware::ClientWithMiddleware,
     ) -> Self
     where
-        H: Into<String>,
         A: Into<String>,
         CR: Into<Option<crate::auth::Credentials>>,
     {
         Self {
-            host: host.into(),
+            host: RootDefaultServer::default().default_url().to_string(),
+            host_override: None,
             agent: agent.into(),
             client: http,
             credentials: credentials.into(),
         }
+    }
+
+    /// Override the host for all endpoins in the client.
+    pub fn with_host_override<H>(&mut self, host: H) -> &mut Self
+    where
+        H: ToString,
+    {
+        self.host_override = Some(host.to_string());
+        self
+    }
+
+    /// Disables the global host override for the client.
+    pub fn remove_host_override(&mut self) -> &mut Self {
+        self.host_override = None;
+        self
+    }
+
+    pub fn get_host_override(&self) -> Option<&str> {
+        self.host_override.as_deref()
+    }
+
+    pub(crate) fn url(&self, path: &str, host: Option<&str>) -> String {
+        format!(
+            "{}{}",
+            self.get_host_override()
+                .or(host)
+                .unwrap_or(self.host.as_str()),
+            path
+        )
     }
 
     pub fn set_credentials<CR>(&mut self, credentials: CR)
@@ -387,10 +456,9 @@ impl Client {
                 crate::auth::AuthenticationConstraint::JWT,
                 Some(&crate::auth::Credentials::InstallationToken(ref apptoken)),
             ) => Some(apptoken.jwt()),
-            (crate::auth::AuthenticationConstraint::JWT, creds) => {
+            (crate::auth::AuthenticationConstraint::JWT, _) => {
                 log::info!(
-                    "Request needs JWT authentication but only {:?} available",
-                    creds
+                    "Request needs JWT authentication but only a mismatched method is available"
                 );
                 None
             }
@@ -401,51 +469,58 @@ impl Client {
         &self,
         uri: &str,
         authentication: crate::auth::AuthenticationConstraint,
-    ) -> Result<(reqwest::Url, Option<String>)> {
-        let parsed_url = uri.parse::<reqwest::Url>();
+    ) -> ClientResult<(reqwest::Url, Option<String>)> {
+        let mut parsed_url = uri.parse::<reqwest::Url>()?;
 
         match self.credentials(authentication) {
-            Some(&crate::auth::Credentials::Client(ref id, ref secret)) => parsed_url
-                .map(|mut u| {
-                    u.query_pairs_mut()
-                        .append_pair("client_id", id)
-                        .append_pair("client_secret", secret);
-                    (u, None)
-                })
-                .map_err(Error::from),
+            Some(&crate::auth::Credentials::Client(ref id, ref secret)) => {
+                parsed_url
+                    .query_pairs_mut()
+                    .append_pair("client_id", id)
+                    .append_pair("client_secret", secret);
+                Ok((parsed_url, None))
+            }
             Some(&crate::auth::Credentials::Token(ref token)) => {
                 let auth = format!("token {}", token);
-                parsed_url.map(|u| (u, Some(auth))).map_err(Error::from)
+                Ok((parsed_url, Some(auth)))
             }
             Some(&crate::auth::Credentials::JWT(ref jwt)) => {
                 let auth = format!("Bearer {}", jwt.token());
-                parsed_url.map(|u| (u, Some(auth))).map_err(Error::from)
+                Ok((parsed_url, Some(auth)))
             }
             Some(&crate::auth::Credentials::InstallationToken(ref apptoken)) => {
-                if let Some(token) = apptoken.token() {
-                    let auth = format!("token {}", token);
-                    parsed_url.map(|u| (u, Some(auth))).map_err(Error::from)
+                let token = if let Some(token) = apptoken.token().await {
+                    token
                 } else {
-                    log::debug!("app token is stale, refreshing");
-                    let token_ref = apptoken.access_key.clone();
+                    let mut token_guard = apptoken.access_key.write().await;
+                    if let Some(token) = token_guard.as_ref().and_then(|t| t.token()) {
+                        token.to_owned()
+                    } else {
+                        log::debug!("app token is stale, refreshing");
 
-                    let token = self
-                        .apps()
-                        .create_installation_access_token(
-                            apptoken.installation_id as i64,
-                            &types::AppsCreateInstallationAccessTokenRequest {
-                                permissions: Default::default(),
-                                repositories: Default::default(),
-                                repository_ids: Default::default(),
-                            },
-                        )
-                        .await?;
-                    let auth = format!("token {}", &token.token);
-                    *token_ref.lock().unwrap() = Some(token.token);
-                    parsed_url.map(|u| (u, Some(auth))).map_err(Error::from)
-                }
+                        let created_at = tokio::time::Instant::now();
+                        let token = self
+                            .apps()
+                            .create_installation_access_token(
+                                apptoken.installation_id,
+                                &types::AppsCreateInstallationAccessTokenRequest {
+                                    permissions: Default::default(),
+                                    repositories: Default::default(),
+                                    repository_ids: Default::default(),
+                                },
+                            )
+                            .await?;
+                        *token_guard = Some(crate::auth::ExpiringInstallationToken::new(
+                            token.token.clone(),
+                            created_at,
+                        ));
+                        token.token
+                    }
+                };
+                let auth = format!("token {}", token);
+                Ok((parsed_url, Some(auth)))
             }
-            None => parsed_url.map(|u| (u, None)).map_err(Error::from),
+            None => Ok((parsed_url, None)),
         }
     }
 
@@ -453,10 +528,10 @@ impl Client {
         &self,
         method: http::Method,
         uri: &str,
-        body: Option<reqwest::Body>,
+        message: Message,
         media_type: crate::utils::MediaType,
         authentication: crate::auth::AuthenticationConstraint,
-    ) -> Result<(Option<hyperx::header::Link>, Out)>
+    ) -> ClientResult<(Option<crate::utils::NextLink>, Out)>
     where
         Out: serde::de::DeserializeOwned + 'static + Send,
     {
@@ -481,24 +556,18 @@ impl Client {
             req
         };
 
+        if let Some(content_type) = &message.content_type {
+            req = req.header(http::header::CONTENT_TYPE, content_type.clone());
+        }
+
         req = req.header(http::header::USER_AGENT, &*instance.agent);
-        req = req.header(
-            http::header::ACCEPT,
-            &*format!(
-                "{}",
-                hyperx::header::qitem::<mime::Mime>(From::from(media_type))
-            ),
-        );
+        req = req.header(http::header::ACCEPT, &media_type.to_string());
 
         if let Some(auth_str) = auth {
             req = req.header(http::header::AUTHORIZATION, &*auth_str);
         }
 
-        if let Some(body) = body {
-            log::debug!(
-                "body: {:?}",
-                String::from_utf8(body.as_bytes().unwrap().to_vec()).unwrap()
-            );
+        if let Some(body) = message.body {
             req = req.body(body);
         }
         let response = req.send().await?;
@@ -520,24 +589,21 @@ impl Client {
             .headers()
             .get(http::header::LINK)
             .and_then(|l| l.to_str().ok())
-            .and_then(|l| l.parse().ok());
+            .and_then(|l| parse_link_header::parse(l).ok());
+        let next_link = link.as_ref().and_then(crate::utils::next_link);
 
         let response_body = response.bytes().await?;
 
         if status.is_success() {
-            log::debug!(
-                "response payload {}",
-                String::from_utf8_lossy(&response_body)
-            );
+            log::debug!("Received successful response. Read payload.");
             #[cfg(feature = "httpcache")]
             {
                 if let Some(etag) = etag {
-                    let next_link = link.as_ref().and_then(|l| crate::utils::next_link(l));
                     if let Err(e) = instance2.http_cache.cache_response(
                         &uri3,
                         &response_body,
                         &etag,
-                        &next_link,
+                        &next_link.as_ref().map(|n| n.0.clone()),
                     ) {
                         // failing to cache isn't fatal, so just log & swallow the error
                         log::info!("failed to cache body & etag: {}", e);
@@ -548,11 +614,11 @@ impl Client {
             let parsed_response = if status == http::StatusCode::NO_CONTENT
                 || std::any::TypeId::of::<Out>() == std::any::TypeId::of::<()>()
             {
-                serde_json::from_str("null")
+                serde_json::from_str("null")?
             } else {
-                serde_json::from_slice::<Out>(&response_body)
+                serde_json::from_slice::<Out>(&response_body)?
             };
-            parsed_response.map(|out| (link, out)).map_err(Error::from)
+            Ok((next_link, parsed_response))
         } else if status == http::StatusCode::NOT_MODIFIED {
             // only supported case is when client provides if-none-match
             // header when cargo builds with --cfg feature="httpcache"
@@ -560,18 +626,12 @@ impl Client {
             {
                 let body = instance2.http_cache.lookup_body(&uri3).unwrap();
                 let out = serde_json::from_str::<Out>(&body).unwrap();
-                let link = match link {
-                    Some(link) => Ok(Some(link)),
+                let link = match next_link {
+                    Some(next_link) => Ok(Some(next_link)),
                     None => instance2
                         .http_cache
                         .lookup_next_link(&uri3)
-                        .map(|next_link| {
-                            next_link.map(|next| {
-                                let next = hyperx::header::LinkValue::new(next)
-                                    .push_rel(hyperx::header::RelationType::Next);
-                                hyperx::header::Link::new(vec![next])
-                            })
-                        }),
+                        .map(|next_link| next_link.map(crate::utils::NextLink)),
                 };
                 link.map(|link| (link, out))
             }
@@ -586,20 +646,21 @@ impl Client {
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap()
                         .as_secs();
-                    anyhow!(
-                        "rate limit exceeded, will reset in {} seconds",
-                        u64::from(reset) - now
-                    )
+                    ClientError::RateLimited {
+                        duration: u64::from(reset).saturating_sub(now),
+                    }
                 }
                 _ => {
                     if response_body.is_empty() {
-                        anyhow!("code: {}, empty response", status)
-                    } else {
-                        anyhow!(
-                            "code: {}, error: {:?}",
+                        ClientError::HttpError {
                             status,
-                            String::from_utf8_lossy(&response_body),
-                        )
+                            error: "empty response".into(),
+                        }
+                    } else {
+                        ClientError::HttpError {
+                            status,
+                            error: String::from_utf8_lossy(&response_body).into(),
+                        }
                     }
                 }
             };
@@ -611,20 +672,20 @@ impl Client {
         &self,
         method: http::Method,
         uri: &str,
-        body: Option<reqwest::Body>,
+        message: Message,
         media_type: crate::utils::MediaType,
         authentication: crate::auth::AuthenticationConstraint,
-    ) -> Result<D>
+    ) -> ClientResult<D>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
         let (_, r) = self
-            .request(method, uri, body, media_type, authentication)
+            .request(method, uri, message, media_type, authentication)
             .await?;
         Ok(r)
     }
 
-    async fn get<D>(&self, uri: &str, message: Option<reqwest::Body>) -> Result<D>
+    async fn get<D>(&self, uri: &str, message: Message) -> ClientResult<D>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
@@ -636,14 +697,14 @@ impl Client {
         &self,
         uri: &str,
         media: crate::utils::MediaType,
-        message: Option<reqwest::Body>,
-    ) -> Result<D>
+        message: Message,
+    ) -> ClientResult<D>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
         self.request_entity(
             http::Method::GET,
-            &(self.host.clone() + uri),
+            uri,
             message,
             media,
             crate::auth::AuthenticationConstraint::Unconstrained,
@@ -651,21 +712,24 @@ impl Client {
         .await
     }
 
-    async fn get_all_pages<D>(&self, uri: &str, _message: Option<reqwest::Body>) -> Result<Vec<D>>
+    async fn get_all_pages<D>(&self, uri: &str, _message: Message) -> ClientResult<Vec<D>>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
         self.unfold(uri).await
     }
 
-    async fn get_pages<D>(&self, uri: &str) -> Result<(Option<hyperx::header::Link>, Vec<D>)>
+    async fn get_pages<D>(
+        &self,
+        uri: &str,
+    ) -> ClientResult<(Option<crate::utils::NextLink>, Vec<D>)>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
         self.request(
             http::Method::GET,
-            &(self.host.clone() + uri),
-            None,
+            uri,
+            Message::default(),
             crate::utils::MediaType::Json,
             crate::auth::AuthenticationConstraint::Unconstrained,
         )
@@ -675,21 +739,21 @@ impl Client {
     async fn get_pages_url<D>(
         &self,
         url: &reqwest::Url,
-    ) -> Result<(Option<hyperx::header::Link>, Vec<D>)>
+    ) -> ClientResult<(Option<crate::utils::NextLink>, Vec<D>)>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
         self.request(
             http::Method::GET,
             url.as_str(),
-            None,
+            Message::default(),
             crate::utils::MediaType::Json,
             crate::auth::AuthenticationConstraint::Unconstrained,
         )
         .await
     }
 
-    async fn post<D>(&self, uri: &str, message: Option<reqwest::Body>) -> Result<D>
+    async fn post<D>(&self, uri: &str, message: Message) -> ClientResult<D>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
@@ -705,35 +769,29 @@ impl Client {
     async fn post_media<D>(
         &self,
         uri: &str,
-        message: Option<reqwest::Body>,
+        message: Message,
         media: crate::utils::MediaType,
         authentication: crate::auth::AuthenticationConstraint,
-    ) -> Result<D>
+    ) -> ClientResult<D>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
-        self.request_entity(
-            http::Method::POST,
-            &(self.host.clone() + uri),
-            message,
-            media,
-            authentication,
-        )
-        .await
+        self.request_entity(http::Method::POST, uri, message, media, authentication)
+            .await
     }
 
     async fn patch_media<D>(
         &self,
         uri: &str,
-        message: Option<reqwest::Body>,
+        message: Message,
         media: crate::utils::MediaType,
-    ) -> Result<D>
+    ) -> ClientResult<D>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
         self.request_entity(
             http::Method::PATCH,
-            &(self.host.clone() + uri),
+            uri,
             message,
             media,
             crate::auth::AuthenticationConstraint::Unconstrained,
@@ -741,7 +799,7 @@ impl Client {
         .await
     }
 
-    async fn patch<D>(&self, uri: &str, message: Option<reqwest::Body>) -> Result<D>
+    async fn patch<D>(&self, uri: &str, message: Message) -> ClientResult<D>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
@@ -749,7 +807,7 @@ impl Client {
             .await
     }
 
-    async fn put<D>(&self, uri: &str, message: Option<reqwest::Body>) -> Result<D>
+    async fn put<D>(&self, uri: &str, message: Message) -> ClientResult<D>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
@@ -760,15 +818,15 @@ impl Client {
     async fn put_media<D>(
         &self,
         uri: &str,
-        message: Option<reqwest::Body>,
+        message: Message,
         media: crate::utils::MediaType,
-    ) -> Result<D>
+    ) -> ClientResult<D>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
         self.request_entity(
             http::Method::PUT,
-            &(self.host.clone() + uri),
+            uri,
             message,
             media,
             crate::auth::AuthenticationConstraint::Unconstrained,
@@ -776,13 +834,13 @@ impl Client {
         .await
     }
 
-    async fn delete<D>(&self, uri: &str, message: Option<reqwest::Body>) -> Result<D>
+    async fn delete<D>(&self, uri: &str, message: Message) -> ClientResult<D>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
         self.request_entity(
             http::Method::DELETE,
-            &(self.host.clone() + uri),
+            uri,
             message,
             crate::utils::MediaType::Json,
             crate::auth::AuthenticationConstraint::Unconstrained,
@@ -791,7 +849,7 @@ impl Client {
     }
 
     /// "unfold" paginated results of a vector of items
-    async fn unfold<D>(&self, uri: &str) -> Result<Vec<D>>
+    async fn unfold<D>(&self, uri: &str) -> ClientResult<Vec<D>>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
@@ -801,8 +859,8 @@ impl Client {
         while !items.is_empty() {
             global_items.append(&mut items);
             // We need to get the next link.
-            if let Some(url) = link.as_ref().and_then(crate::utils::next_link) {
-                let url = reqwest::Url::parse(&url)?;
+            if let Some(url) = &link {
+                let url = reqwest::Url::parse(&url.0)?;
                 let (new_link, new_items) = self.get_pages_url(&url).await?;
                 link = new_link;
                 items = new_items;

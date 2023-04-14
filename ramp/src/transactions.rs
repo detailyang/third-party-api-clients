@@ -1,6 +1,5 @@
-use anyhow::Result;
-
 use crate::Client;
+use crate::ClientResult;
 
 pub struct Transactions {
     pub client: Client,
@@ -13,32 +12,32 @@ impl Transactions {
     }
 
     /**
-    * List transactions.
-    *
-    * This function performs a `GET` to the `/transactions` endpoint.
-    *
-    * Retrieves all transactions for the business. This endpoint supports filtering and ordering. NOTE: only one ordering param is supported.
-    *
-    * **Parameters:**
-    *
-    * * `authorization: &str` -- The OAuth2 token header.
-    * * `department_id: &str` -- The OAuth2 token header.
-    * * `location_id: &str` -- The OAuth2 token header.
-    * * `from_date: chrono::DateTime<chrono::Utc>`
-    * * `to_date: chrono::DateTime<chrono::Utc>`
-    * * `merchant_id: &str` -- The OAuth2 token header.
-    * * `sk_category_id: &str` -- The OAuth2 token header.
-    * * `order_by_date_desc: bool`
-    * * `order_by_date_asc: bool`
-    * * `order_by_amount_desc: bool`
-    * * `order_by_amount_asc: bool`
-    * * `state: &str` -- The OAuth2 token header.
-    * * `min_amount: f64` -- The number of results to be returned in each page. The value must be between 2 and 10,000. If not specified, the default will be 1,000.
-    * * `max_amount: f64` -- The number of results to be returned in each page. The value must be between 2 and 10,000. If not specified, the default will be 1,000.
-    * * `start: &str` -- The ID of the last entity of the previous page, used for pagination to get the next page.
-    * * `page_size: f64` -- The number of results to be returned in each page. The value must be between 2 and 10,000. If not specified, the default will be 1,000.
-    * * `requires_memo: bool` -- Filters for transactions which require a memo, but do not have one. This can only be set to true.
-    */
+     * List transactions.
+     *
+     * This function performs a `GET` to the `/transactions` endpoint.
+     *
+     * Retrieves all transactions for the business. This endpoint supports filtering and ordering. NOTE: only one ordering param is supported.
+     *
+     * **Parameters:**
+     *
+     * * `authorization: &str` -- The OAuth2 token header.
+     * * `department_id: &str` -- The OAuth2 token header.
+     * * `location_id: &str` -- The OAuth2 token header.
+     * * `from_date: chrono::DateTime<chrono::Utc>`
+     * * `to_date: chrono::DateTime<chrono::Utc>`
+     * * `merchant_id: &str` -- The OAuth2 token header.
+     * * `sk_category_id: &str` -- The OAuth2 token header.
+     * * `order_by_date_desc: bool`
+     * * `order_by_date_asc: bool`
+     * * `order_by_amount_desc: bool`
+     * * `order_by_amount_asc: bool`
+     * * `state: &str` -- The OAuth2 token header.
+     * * `min_amount: f64` -- The number of results to be returned in each page. The value must be between 2 and 10,000. If not specified, the default will be 1,000.
+     * * `max_amount: f64` -- The number of results to be returned in each page. The value must be between 2 and 10,000. If not specified, the default will be 1,000.
+     * * `start: &str` -- The ID of the last entity of the previous page, used for pagination to get the next page.
+     * * `page_size: f64` -- The number of results to be returned in each page. The value must be between 2 and 10,000. If not specified, the default will be 1,000.
+     * * `requires_memo: bool` -- Filters for transactions which require a memo, but do not have one. This can only be set to true.
+     */
     pub async fn get_page(
         &self,
         department_id: &str,
@@ -57,7 +56,7 @@ impl Transactions {
         start: &str,
         page_size: f64,
         requires_memo: bool,
-    ) -> Result<Vec<crate::types::Data>> {
+    ) -> ClientResult<Vec<crate::types::Data>> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !department_id.is_empty() {
             query_args.push(("department_id".to_string(), department_id.to_string()));
@@ -120,23 +119,30 @@ impl Transactions {
             query_args.push(("to_date".to_string(), date.to_rfc3339()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/transactions?{}", query_);
-
-        let resp: crate::types::GetTransactionResponse = self.client.get(&url, None).await?;
+        let url = self.client.url(&format!("/transactions?{}", query_), None);
+        let resp: crate::types::GetTransactionResponse = self
+            .client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await?;
 
         // Return our response data.
-        Ok(resp.data)
+        Ok(resp.data.to_vec())
     }
-
     /**
-    * List transactions.
-    *
-    * This function performs a `GET` to the `/transactions` endpoint.
-    *
-    * As opposed to `get`, this function returns all the pages of the request at once.
-    *
-    * Retrieves all transactions for the business. This endpoint supports filtering and ordering. NOTE: only one ordering param is supported.
-    */
+     * List transactions.
+     *
+     * This function performs a `GET` to the `/transactions` endpoint.
+     *
+     * As opposed to `get`, this function returns all the pages of the request at once.
+     *
+     * Retrieves all transactions for the business. This endpoint supports filtering and ordering. NOTE: only one ordering param is supported.
+     */
     pub async fn get_all(
         &self,
         department_id: &str,
@@ -153,7 +159,7 @@ impl Transactions {
         min_amount: f64,
         max_amount: f64,
         requires_memo: bool,
-    ) -> Result<Vec<crate::types::Data>> {
+    ) -> ClientResult<Vec<crate::types::Data>> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !department_id.is_empty() {
             query_args.push(("department_id".to_string(), department_id.to_string()));
@@ -210,9 +216,17 @@ impl Transactions {
             query_args.push(("to_date".to_string(), date.to_rfc3339()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/transactions?{}", query_);
-
-        let resp: crate::types::GetTransactionResponse = self.client.get(&url, None).await?;
+        let url = self.client.url(&format!("/transactions?{}", query_), None);
+        let resp: crate::types::GetTransactionResponse = self
+            .client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await?;
 
         let mut data = resp.data;
         let mut page = resp.page.next.to_string();
@@ -222,8 +236,11 @@ impl Transactions {
             match self
                 .client
                 .get::<crate::types::GetTransactionResponse>(
-                    page.trim_start_matches(crate::DEFAULT_HOST),
-                    None,
+                    page.trim_start_matches(&self.client.host),
+                    crate::Message {
+                        body: None,
+                        content_type: None,
+                    },
                 )
                 .await
             {
@@ -240,7 +257,7 @@ impl Transactions {
                     if e.to_string().contains("404 Not Found") {
                         page = "".to_string();
                     } else {
-                        anyhow::bail!(e);
+                        return Err(e);
                     }
                 }
             }
@@ -249,24 +266,33 @@ impl Transactions {
         // Return our response data.
         Ok(data)
     }
-
     /**
-    * GET a transaction.
-    *
-    * This function performs a `GET` to the `/transactions/{id}` endpoint.
-    *
-    *
-    *
-    * **Parameters:**
-    *
-    * * `authorization: &str` -- The OAuth2 token header.
-    */
-    pub async fn get_resource(&self, id: &str) -> Result<crate::types::Data> {
-        let url = format!(
-            "/transactions/{}",
-            crate::progenitor_support::encode_path(id),
+     * GET a transaction.
+     *
+     * This function performs a `GET` to the `/transactions/{id}` endpoint.
+     *
+     *
+     *
+     * **Parameters:**
+     *
+     * * `authorization: &str` -- The OAuth2 token header.
+     */
+    pub async fn get_resource(&self, id: &str) -> ClientResult<crate::types::Data> {
+        let url = self.client.url(
+            &format!(
+                "/transactions/{}",
+                crate::progenitor_support::encode_path(id),
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
 }

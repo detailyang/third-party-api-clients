@@ -1,6 +1,5 @@
-use anyhow::Result;
-
 use crate::Client;
+use crate::ClientResult;
 
 pub struct Logs {
     pub client: Client,
@@ -13,22 +12,22 @@ impl Logs {
     }
 
     /**
-    * Fetch a list of events from your Okta organization system log.
-    *
-    * This function performs a `GET` to the `/api/v1/logs` endpoint.
-    *
-    * The Okta System Log API provides read access to your organization’s system log. This API provides more functionality than the Events API
-    *
-    * **Parameters:**
-    *
-    * * `since: chrono::DateTime<chrono::Utc>`
-    * * `until: chrono::DateTime<chrono::Utc>`
-    * * `filter: &str`
-    * * `q: &str`
-    * * `limit: i64`
-    * * `sort_order: &str`
-    * * `after: &str`
-    */
+     * Fetch a list of events from your Okta organization system log.
+     *
+     * This function performs a `GET` to the `/api/v1/logs` endpoint.
+     *
+     * The Okta System Log API provides read access to your organization’s system log. This API provides more functionality than the Events API
+     *
+     * **Parameters:**
+     *
+     * * `since: chrono::DateTime<chrono::Utc>`
+     * * `until: chrono::DateTime<chrono::Utc>`
+     * * `filter: &str`
+     * * `q: &str`
+     * * `limit: i64`
+     * * `sort_order: &str`
+     * * `after: &str`
+     */
     pub async fn get_page(
         &self,
         since: Option<chrono::DateTime<chrono::Utc>>,
@@ -38,7 +37,7 @@ impl Logs {
         limit: i64,
         sort_order: &str,
         after: &str,
-    ) -> Result<Vec<crate::types::LogEvent>> {
+    ) -> ClientResult<Vec<crate::types::LogEvent>> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !after.is_empty() {
             query_args.push(("after".to_string(), after.to_string()));
@@ -62,20 +61,26 @@ impl Logs {
             query_args.push(("until".to_string(), date.to_rfc3339()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/api/v1/logs?{}", query_);
-
-        self.client.get(&url, None).await
+        let url = self.client.url(&format!("/api/v1/logs?{}", query_), None);
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Fetch a list of events from your Okta organization system log.
-    *
-    * This function performs a `GET` to the `/api/v1/logs` endpoint.
-    *
-    * As opposed to `get`, this function returns all the pages of the request at once.
-    *
-    * The Okta System Log API provides read access to your organization’s system log. This API provides more functionality than the Events API
-    */
+     * Fetch a list of events from your Okta organization system log.
+     *
+     * This function performs a `GET` to the `/api/v1/logs` endpoint.
+     *
+     * As opposed to `get`, this function returns all the pages of the request at once.
+     *
+     * The Okta System Log API provides read access to your organization’s system log. This API provides more functionality than the Events API
+     */
     pub async fn get_all(
         &self,
         since: Option<chrono::DateTime<chrono::Utc>>,
@@ -83,7 +88,7 @@ impl Logs {
         filter: &str,
         q: &str,
         sort_order: &str,
-    ) -> Result<Vec<crate::types::LogEvent>> {
+    ) -> ClientResult<Vec<crate::types::LogEvent>> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !filter.is_empty() {
             query_args.push(("filter".to_string(), filter.to_string()));
@@ -101,8 +106,15 @@ impl Logs {
             query_args.push(("until".to_string(), date.to_rfc3339()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/api/v1/logs?{}", query_);
-
-        self.client.get_all_pages(&url, None).await
+        let url = self.client.url(&format!("/api/v1/logs?{}", query_), None);
+        self.client
+            .get_all_pages(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
 }

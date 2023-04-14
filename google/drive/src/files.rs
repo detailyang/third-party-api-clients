@@ -1,6 +1,5 @@
-use anyhow::Result;
-
 use crate::Client;
+use crate::ClientResult;
 
 pub struct Files {
     pub client: Client,
@@ -13,27 +12,27 @@ impl Files {
     }
 
     /**
-    * This function performs a `GET` to the `/files` endpoint.
-    *
-    * Lists or searches files.
-    *
-    * **Parameters:**
-    *
-    * * `corpora: &str` -- Groupings of files to which the query applies. Supported groupings are: 'user' (files created by, opened by, or shared directly with the user), 'drive' (files in the specified shared drive as indicated by the 'driveId'), 'domain' (files shared to the user's domain), and 'allDrives' (A combination of 'user' and 'drive' for all drives where the user is a member). When able, use 'user' or 'drive', instead of 'allDrives', for efficiency.
-    * * `corpus: crate::types::Corpus` -- The source of files to list. Deprecated: use 'corpora' instead.
-    * * `drive_id: &str` -- A link to this theme's background image.
-    * * `include_items_from_all_drives: bool` -- Whether both My Drive and shared drive items should be included in results.
-    * * `include_permissions_for_view: &str` -- Specifies which additional view's permissions to include in the response. Only 'published' is supported.
-    * * `include_team_drive_items: bool` -- Whether the user has installed the requesting app.
-    * * `order_by: &str` -- A comma-separated list of sort keys. Valid keys are 'createdTime', 'folder', 'modifiedByMeTime', 'modifiedTime', 'name', 'name_natural', 'quotaBytesUsed', 'recency', 'sharedWithMeTime', 'starred', and 'viewedByMeTime'. Each key sorts ascending by default, but may be reversed with the 'desc' modifier. Example usage: ?orderBy=folder,modifiedTime desc,name. Please note that there is a current limitation for users with approximately one million files in which the requested sort order is ignored.
-    * * `page_size: i64` -- The maximum number of files to return per page. Partial or empty result pages are possible even before the end of the files list has been reached.
-    * * `page_token: &str` -- The token for continuing a previous list request on the next page. This should be set to the value of 'nextPageToken' from the previous response.
-    * * `q: &str` -- A query for filtering the file results. See the "Search for Files" guide for supported syntax.
-    * * `spaces: &str` -- A comma-separated list of spaces to query within the corpus. Supported values are 'drive' and 'appDataFolder'.
-    * * `supports_all_drives: bool` -- Whether the requesting application supports both My Drives and shared drives.
-    * * `supports_team_drives: bool` -- Whether the user has installed the requesting app.
-    * * `team_drive_id: &str` -- A link to this theme's background image.
-    */
+     * This function performs a `GET` to the `/files` endpoint.
+     *
+     * Lists or searches files.
+     *
+     * **Parameters:**
+     *
+     * * `corpora: &str` -- Groupings of files to which the query applies. Supported groupings are: 'user' (files created by, opened by, or shared directly with the user), 'drive' (files in the specified shared drive as indicated by the 'driveId'), 'domain' (files shared to the user's domain), and 'allDrives' (A combination of 'user' and 'drive' for all drives where the user is a member). When able, use 'user' or 'drive', instead of 'allDrives', for efficiency.
+     * * `corpus: crate::types::Corpus` -- The source of files to list. Deprecated: use 'corpora' instead.
+     * * `drive_id: &str` -- A link to this theme's background image.
+     * * `include_items_from_all_drives: bool` -- Whether both My Drive and shared drive items should be included in results.
+     * * `include_permissions_for_view: &str` -- Specifies which additional view's permissions to include in the response. Only 'published' is supported.
+     * * `include_team_drive_items: bool` -- Whether the user has installed the requesting app.
+     * * `order_by: &str` -- A comma-separated list of sort keys. Valid keys are 'createdTime', 'folder', 'modifiedByMeTime', 'modifiedTime', 'name', 'name_natural', 'quotaBytesUsed', 'recency', 'sharedWithMeTime', 'starred', and 'viewedByMeTime'. Each key sorts ascending by default, but may be reversed with the 'desc' modifier. Example usage: ?orderBy=folder,modifiedTime desc,name. Please note that there is a current limitation for users with approximately one million files in which the requested sort order is ignored.
+     * * `page_size: i64` -- The maximum number of files to return per page. Partial or empty result pages are possible even before the end of the files list has been reached.
+     * * `page_token: &str` -- The token for continuing a previous list request on the next page. This should be set to the value of 'nextPageToken' from the previous response.
+     * * `q: &str` -- A query for filtering the file results. See the "Search for Files" guide for supported syntax.
+     * * `spaces: &str` -- A comma-separated list of spaces to query within the corpus. Supported values are 'drive' and 'appDataFolder'.
+     * * `supports_all_drives: bool` -- Whether the requesting application supports both My Drives and shared drives.
+     * * `supports_team_drives: bool` -- Whether the user has installed the requesting app.
+     * * `team_drive_id: &str` -- A link to this theme's background image.
+     */
     pub async fn list(
         &self,
         corpora: &str,
@@ -49,7 +48,7 @@ impl Files {
         supports_all_drives: bool,
         supports_team_drives: bool,
         team_drive_id: &str,
-    ) -> Result<Vec<crate::types::File>> {
+    ) -> ClientResult<Vec<crate::types::File>> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !corpora.is_empty() {
             query_args.push(("corpora".to_string(), corpora.to_string()));
@@ -106,21 +105,28 @@ impl Files {
             query_args.push(("teamDriveId".to_string(), team_drive_id.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/files?{}", query_);
-
-        let resp: crate::types::FileList = self.client.get(&url, None).await?;
+        let url = self.client.url(&format!("/files?{}", query_), None);
+        let resp: crate::types::FileList = self
+            .client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await?;
 
         // Return our response data.
         Ok(resp.files.to_vec())
     }
-
     /**
-    * This function performs a `GET` to the `/files` endpoint.
-    *
-    * As opposed to `list`, this function returns all the pages of the request at once.
-    *
-    * Lists or searches files.
-    */
+     * This function performs a `GET` to the `/files` endpoint.
+     *
+     * As opposed to `list`, this function returns all the pages of the request at once.
+     *
+     * Lists or searches files.
+     */
     pub async fn list_all(
         &self,
         corpora: &str,
@@ -134,7 +140,7 @@ impl Files {
         supports_all_drives: bool,
         supports_team_drives: bool,
         team_drive_id: &str,
-    ) -> Result<Vec<crate::types::File>> {
+    ) -> ClientResult<Vec<crate::types::File>> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !corpora.is_empty() {
             query_args.push(("corpora".to_string(), corpora.to_string()));
@@ -185,9 +191,17 @@ impl Files {
             query_args.push(("teamDriveId".to_string(), team_drive_id.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/files?{}", query_);
-
-        let mut resp: crate::types::FileList = self.client.get(&url, None).await?;
+        let url = self.client.url(&format!("/files?{}", query_), None);
+        let mut resp: crate::types::FileList = self
+            .client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await?;
 
         let mut files = resp.files;
         let mut page = resp.next_page_token;
@@ -197,12 +211,24 @@ impl Files {
             if !url.contains('?') {
                 resp = self
                     .client
-                    .get(&format!("{}?pageToken={}", url, page), None)
+                    .get(
+                        &format!("{}?pageToken={}", url, page),
+                        crate::Message {
+                            body: None,
+                            content_type: None,
+                        },
+                    )
                     .await?;
             } else {
                 resp = self
                     .client
-                    .get(&format!("{}&pageToken={}", url, page), None)
+                    .get(
+                        &format!("{}&pageToken={}", url, page),
+                        crate::Message {
+                            body: None,
+                            content_type: None,
+                        },
+                    )
                     .await?;
             }
 
@@ -218,23 +244,22 @@ impl Files {
         // Return our response data.
         Ok(files)
     }
-
     /**
-    * This function performs a `POST` to the `/files` endpoint.
-    *
-    * Creates a new file.
-    *
-    * **Parameters:**
-    *
-    * * `enforce_single_parent: bool` -- Deprecated. Creating files in multiple folders is no longer supported.
-    * * `ignore_default_visibility: bool` -- Whether to ignore the domain's default visibility settings for the created file. Domain administrators can choose to make all uploaded files visible to the domain by default; this parameter bypasses that behavior for the request. Permissions are still inherited from parent folders.
-    * * `include_permissions_for_view: &str` -- Specifies which additional view's permissions to include in the response. Only 'published' is supported.
-    * * `keep_revision_forever: bool` -- Whether to set the 'keepForever' field in the new head revision. This is only applicable to files with binary content in Google Drive. Only 200 revisions for the file can be kept forever. If the limit is reached, try deleting pinned revisions.
-    * * `ocr_language: &str` -- A language hint for OCR processing during image import (ISO 639-1 code).
-    * * `supports_all_drives: bool` -- Whether the requesting application supports both My Drives and shared drives.
-    * * `supports_team_drives: bool` -- Whether the user has installed the requesting app.
-    * * `use_content_as_indexable_text: bool` -- Whether to use the uploaded content as indexable text.
-    */
+     * This function performs a `POST` to the `/files` endpoint.
+     *
+     * Creates a new file.
+     *
+     * **Parameters:**
+     *
+     * * `enforce_single_parent: bool` -- Deprecated. Creating files in multiple folders is no longer supported.
+     * * `ignore_default_visibility: bool` -- Whether to ignore the domain's default visibility settings for the created file. Domain administrators can choose to make all uploaded files visible to the domain by default; this parameter bypasses that behavior for the request. Permissions are still inherited from parent folders.
+     * * `include_permissions_for_view: &str` -- Specifies which additional view's permissions to include in the response. Only 'published' is supported.
+     * * `keep_revision_forever: bool` -- Whether to set the 'keepForever' field in the new head revision. This is only applicable to files with binary content in Google Drive. Only 200 revisions for the file can be kept forever. If the limit is reached, try deleting pinned revisions.
+     * * `ocr_language: &str` -- A language hint for OCR processing during image import (ISO 639-1 code).
+     * * `supports_all_drives: bool` -- Whether the requesting application supports both My Drives and shared drives.
+     * * `supports_team_drives: bool` -- Whether the user has installed the requesting app.
+     * * `use_content_as_indexable_text: bool` -- Whether to use the uploaded content as indexable text.
+     */
     pub async fn create(
         &self,
         ignore_default_visibility: bool,
@@ -245,7 +270,7 @@ impl Files {
         supports_team_drives: bool,
         use_content_as_indexable_text: bool,
         body: &crate::types::File,
-    ) -> Result<crate::types::File> {
+    ) -> ClientResult<crate::types::File> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if ignore_default_visibility {
             query_args.push((
@@ -287,30 +312,34 @@ impl Files {
             ));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/files?{}", query_);
-
+        let url = self.client.url(&format!("/files?{}", query_), None);
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/octet-stream".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * This function performs a `GET` to the `/files/generateIds` endpoint.
-    *
-    * Generates a set of file IDs which can be provided in create or copy requests.
-    *
-    * **Parameters:**
-    *
-    * * `count: i64` -- A map of maximum import sizes by MIME type, in bytes.
-    * * `space: &str` -- The space in which the IDs can be used to create new files. Supported values are 'drive' and 'appDataFolder'. (Default: 'drive').
-    * * `type_: &str` -- The type of items which the IDs can be used for. Supported values are 'files' and 'shortcuts'. Note that 'shortcuts' are only supported in the drive 'space'. (Default: 'files').
-    */
+     * This function performs a `GET` to the `/files/generateIds` endpoint.
+     *
+     * Generates a set of file IDs which can be provided in create or copy requests.
+     *
+     * **Parameters:**
+     *
+     * * `count: i64` -- A map of maximum import sizes by MIME type, in bytes.
+     * * `space: &str` -- The space in which the IDs can be used to create new files. Supported values are 'drive' and 'appDataFolder'. (Default: 'drive').
+     * * `type_: &str` -- The type of items which the IDs can be used for. Supported values are 'files' and 'shortcuts'. Note that 'shortcuts' are only supported in the drive 'space'. (Default: 'files').
+     */
     pub async fn generate_id(
         &self,
         count: i64,
         space: &str,
         type_: &str,
-    ) -> Result<crate::types::GeneratedIds> {
+    ) -> ClientResult<crate::types::GeneratedIds> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if count > 0 {
             query_args.push(("count".to_string(), count.to_string()));
@@ -322,38 +351,53 @@ impl Files {
             query_args.push(("type".to_string(), type_.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/files/generateIds?{}", query_);
-
-        self.client.get(&url, None).await
+        let url = self
+            .client
+            .url(&format!("/files/generateIds?{}", query_), None);
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * This function performs a `DELETE` to the `/files/trash` endpoint.
-    *
-    * Permanently deletes all of the user's trashed files.
-    *
-    * **Parameters:**
-    *
-    * * `enforce_single_parent: bool` -- Deprecated. If an item is not in a shared drive and its last parent is deleted but the item itself is not, the item will be placed under its owner's root.
-    */
-    pub async fn empty_trash(&self) -> Result<()> {
-        let url = "/files/trash".to_string();
-        self.client.delete(&url, None).await
+     * This function performs a `DELETE` to the `/files/trash` endpoint.
+     *
+     * Permanently deletes all of the user's trashed files.
+     *
+     * **Parameters:**
+     *
+     * * `enforce_single_parent: bool` -- Deprecated. If an item is not in a shared drive and its last parent is deleted but the item itself is not, the item will be placed under its owner's root.
+     */
+    pub async fn empty_trash(&self) -> ClientResult<()> {
+        let url = self.client.url("/files/trash", None);
+        self.client
+            .delete(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * This function performs a `GET` to the `/files/{fileId}` endpoint.
-    *
-    * Gets a file's metadata or content by ID.
-    *
-    * **Parameters:**
-    *
-    * * `file_id: &str` -- A link to this theme's background image.
-    * * `acknowledge_abuse: bool` -- Whether the user is acknowledging the risk of downloading known malware or other abusive files. This is only applicable when alt=media.
-    * * `include_permissions_for_view: &str` -- Specifies which additional view's permissions to include in the response. Only 'published' is supported.
-    * * `supports_all_drives: bool` -- Whether the requesting application supports both My Drives and shared drives.
-    * * `supports_team_drives: bool` -- Whether the user has installed the requesting app.
-    */
+     * This function performs a `GET` to the `/files/{fileId}` endpoint.
+     *
+     * Gets a file's metadata or content by ID.
+     *
+     * **Parameters:**
+     *
+     * * `file_id: &str` -- A link to this theme's background image.
+     * * `acknowledge_abuse: bool` -- Whether the user is acknowledging the risk of downloading known malware or other abusive files. This is only applicable when alt=media.
+     * * `include_permissions_for_view: &str` -- Specifies which additional view's permissions to include in the response. Only 'published' is supported.
+     * * `supports_all_drives: bool` -- Whether the requesting application supports both My Drives and shared drives.
+     * * `supports_team_drives: bool` -- Whether the user has installed the requesting app.
+     */
     pub async fn get(
         &self,
         file_id: &str,
@@ -361,7 +405,7 @@ impl Files {
         include_permissions_for_view: &str,
         supports_all_drives: bool,
         supports_team_drives: bool,
-    ) -> Result<crate::types::File> {
+    ) -> ClientResult<crate::types::File> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if acknowledge_abuse {
             query_args.push((
@@ -388,33 +432,42 @@ impl Files {
             ));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/files/{}?{}",
-            crate::progenitor_support::encode_path(file_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/files/{}?{}",
+                crate::progenitor_support::encode_path(file_id),
+                query_
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * This function performs a `DELETE` to the `/files/{fileId}` endpoint.
-    *
-    * Permanently deletes a file owned by the user without moving it to the trash. If the file belongs to a shared drive the user must be an organizer on the parent. If the target is a folder, all descendants owned by the user are also deleted.
-    *
-    * **Parameters:**
-    *
-    * * `file_id: &str` -- A link to this theme's background image.
-    * * `enforce_single_parent: bool` -- Deprecated. If an item is not in a shared drive and its last parent is deleted but the item itself is not, the item will be placed under its owner's root.
-    * * `supports_all_drives: bool` -- Whether the requesting application supports both My Drives and shared drives.
-    * * `supports_team_drives: bool` -- Whether the user has installed the requesting app.
-    */
+     * This function performs a `DELETE` to the `/files/{fileId}` endpoint.
+     *
+     * Permanently deletes a file owned by the user without moving it to the trash. If the file belongs to a shared drive the user must be an organizer on the parent. If the target is a folder, all descendants owned by the user are also deleted.
+     *
+     * **Parameters:**
+     *
+     * * `file_id: &str` -- A link to this theme's background image.
+     * * `enforce_single_parent: bool` -- Deprecated. If an item is not in a shared drive and its last parent is deleted but the item itself is not, the item will be placed under its owner's root.
+     * * `supports_all_drives: bool` -- Whether the requesting application supports both My Drives and shared drives.
+     * * `supports_team_drives: bool` -- Whether the user has installed the requesting app.
+     */
     pub async fn delete(
         &self,
         file_id: &str,
         supports_all_drives: bool,
         supports_team_drives: bool,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if supports_all_drives {
             query_args.push((
@@ -429,33 +482,42 @@ impl Files {
             ));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/files/{}?{}",
-            crate::progenitor_support::encode_path(file_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/files/{}?{}",
+                crate::progenitor_support::encode_path(file_id),
+                query_
+            ),
+            None,
         );
-
-        self.client.delete(&url, None).await
+        self.client
+            .delete(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * This function performs a `PATCH` to the `/files/{fileId}` endpoint.
-    *
-    * Updates a file's metadata and/or content. This method supports patch semantics.
-    *
-    * **Parameters:**
-    *
-    * * `file_id: &str` -- A link to this theme's background image.
-    * * `add_parents: &str` -- A comma-separated list of parent IDs to add.
-    * * `enforce_single_parent: bool` -- Deprecated. Adding files to multiple folders is no longer supported. Use shortcuts instead.
-    * * `include_permissions_for_view: &str` -- Specifies which additional view's permissions to include in the response. Only 'published' is supported.
-    * * `keep_revision_forever: bool` -- Whether to set the 'keepForever' field in the new head revision. This is only applicable to files with binary content in Google Drive. Only 200 revisions for the file can be kept forever. If the limit is reached, try deleting pinned revisions.
-    * * `ocr_language: &str` -- A language hint for OCR processing during image import (ISO 639-1 code).
-    * * `remove_parents: &str` -- A comma-separated list of parent IDs to remove.
-    * * `supports_all_drives: bool` -- Whether the requesting application supports both My Drives and shared drives.
-    * * `supports_team_drives: bool` -- Whether the user has installed the requesting app.
-    * * `use_content_as_indexable_text: bool` -- Whether to use the uploaded content as indexable text.
-    */
+     * This function performs a `PATCH` to the `/files/{fileId}` endpoint.
+     *
+     * Updates a file's metadata and/or content. This method supports patch semantics.
+     *
+     * **Parameters:**
+     *
+     * * `file_id: &str` -- A link to this theme's background image.
+     * * `add_parents: &str` -- A comma-separated list of parent IDs to add.
+     * * `enforce_single_parent: bool` -- Deprecated. Adding files to multiple folders is no longer supported. Use shortcuts instead.
+     * * `include_permissions_for_view: &str` -- Specifies which additional view's permissions to include in the response. Only 'published' is supported.
+     * * `keep_revision_forever: bool` -- Whether to set the 'keepForever' field in the new head revision. This is only applicable to files with binary content in Google Drive. Only 200 revisions for the file can be kept forever. If the limit is reached, try deleting pinned revisions.
+     * * `ocr_language: &str` -- A language hint for OCR processing during image import (ISO 639-1 code).
+     * * `remove_parents: &str` -- A comma-separated list of parent IDs to remove.
+     * * `supports_all_drives: bool` -- Whether the requesting application supports both My Drives and shared drives.
+     * * `supports_team_drives: bool` -- Whether the user has installed the requesting app.
+     * * `use_content_as_indexable_text: bool` -- Whether to use the uploaded content as indexable text.
+     */
     pub async fn update(
         &self,
         file_id: &str,
@@ -468,7 +530,7 @@ impl Files {
         supports_team_drives: bool,
         use_content_as_indexable_text: bool,
         body: &crate::types::File,
-    ) -> Result<crate::types::File> {
+    ) -> ClientResult<crate::types::File> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !add_parents.is_empty() {
             query_args.push(("addParents".to_string(), add_parents.to_string()));
@@ -510,33 +572,40 @@ impl Files {
             ));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/files/{}?{}",
-            crate::progenitor_support::encode_path(file_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/files/{}?{}",
+                crate::progenitor_support::encode_path(file_id),
+                query_
+            ),
+            None,
         );
-
         self.client
-            .patch(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .patch(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/octet-stream".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * This function performs a `POST` to the `/files/{fileId}/copy` endpoint.
-    *
-    * Creates a copy of a file and applies any requested updates with patch semantics. Folders cannot be copied.
-    *
-    * **Parameters:**
-    *
-    * * `file_id: &str` -- A link to this theme's background image.
-    * * `enforce_single_parent: bool` -- Deprecated. Copying files into multiple folders is no longer supported. Use shortcuts instead.
-    * * `ignore_default_visibility: bool` -- Whether to ignore the domain's default visibility settings for the created file. Domain administrators can choose to make all uploaded files visible to the domain by default; this parameter bypasses that behavior for the request. Permissions are still inherited from parent folders.
-    * * `include_permissions_for_view: &str` -- Specifies which additional view's permissions to include in the response. Only 'published' is supported.
-    * * `keep_revision_forever: bool` -- Whether to set the 'keepForever' field in the new head revision. This is only applicable to files with binary content in Google Drive. Only 200 revisions for the file can be kept forever. If the limit is reached, try deleting pinned revisions.
-    * * `ocr_language: &str` -- A language hint for OCR processing during image import (ISO 639-1 code).
-    * * `supports_all_drives: bool` -- Whether the requesting application supports both My Drives and shared drives.
-    * * `supports_team_drives: bool` -- Whether the user has installed the requesting app.
-    */
+     * This function performs a `POST` to the `/files/{fileId}/copy` endpoint.
+     *
+     * Creates a copy of a file and applies any requested updates with patch semantics. Folders cannot be copied.
+     *
+     * **Parameters:**
+     *
+     * * `file_id: &str` -- A link to this theme's background image.
+     * * `enforce_single_parent: bool` -- Deprecated. Copying files into multiple folders is no longer supported. Use shortcuts instead.
+     * * `ignore_default_visibility: bool` -- Whether to ignore the domain's default visibility settings for the created file. Domain administrators can choose to make all uploaded files visible to the domain by default; this parameter bypasses that behavior for the request. Permissions are still inherited from parent folders.
+     * * `include_permissions_for_view: &str` -- Specifies which additional view's permissions to include in the response. Only 'published' is supported.
+     * * `keep_revision_forever: bool` -- Whether to set the 'keepForever' field in the new head revision. This is only applicable to files with binary content in Google Drive. Only 200 revisions for the file can be kept forever. If the limit is reached, try deleting pinned revisions.
+     * * `ocr_language: &str` -- A language hint for OCR processing during image import (ISO 639-1 code).
+     * * `supports_all_drives: bool` -- Whether the requesting application supports both My Drives and shared drives.
+     * * `supports_team_drives: bool` -- Whether the user has installed the requesting app.
+     */
     pub async fn copy(
         &self,
         file_id: &str,
@@ -547,7 +616,7 @@ impl Files {
         supports_all_drives: bool,
         supports_team_drives: bool,
         body: &crate::types::File,
-    ) -> Result<crate::types::File> {
+    ) -> ClientResult<crate::types::File> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if ignore_default_visibility {
             query_args.push((
@@ -583,55 +652,71 @@ impl Files {
             ));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/files/{}/copy?{}",
-            crate::progenitor_support::encode_path(file_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/files/{}/copy?{}",
+                crate::progenitor_support::encode_path(file_id),
+                query_
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * This function performs a `GET` to the `/files/{fileId}/export` endpoint.
-    *
-    * Exports a Google Doc to the requested MIME type and returns the exported content. Please note that the exported content is limited to 10MB.
-    *
-    * **Parameters:**
-    *
-    * * `file_id: &str` -- A link to this theme's background image.
-    * * `mime_type: &str` -- The MIME type of the format requested for this export.
-    */
-    pub async fn export(&self, file_id: &str, mime_type: &str) -> Result<()> {
+     * This function performs a `GET` to the `/files/{fileId}/export` endpoint.
+     *
+     * Exports a Google Doc to the requested MIME type and returns the exported content. Please note that the exported content is limited to 10MB.
+     *
+     * **Parameters:**
+     *
+     * * `file_id: &str` -- A link to this theme's background image.
+     * * `mime_type: &str` -- The MIME type of the format requested for this export.
+     */
+    pub async fn export(&self, file_id: &str, mime_type: &str) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !mime_type.is_empty() {
             query_args.push(("mimeType".to_string(), mime_type.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/files/{}/export?{}",
-            crate::progenitor_support::encode_path(file_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/files/{}/export?{}",
+                crate::progenitor_support::encode_path(file_id),
+                query_
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * This function performs a `POST` to the `/files/{fileId}/watch` endpoint.
-    *
-    * Subscribes to changes to a file
-    *
-    * **Parameters:**
-    *
-    * * `file_id: &str` -- A link to this theme's background image.
-    * * `acknowledge_abuse: bool` -- Whether the user is acknowledging the risk of downloading known malware or other abusive files. This is only applicable when alt=media.
-    * * `include_permissions_for_view: &str` -- Specifies which additional view's permissions to include in the response. Only 'published' is supported.
-    * * `supports_all_drives: bool` -- Whether the requesting application supports both My Drives and shared drives.
-    * * `supports_team_drives: bool` -- Whether the user has installed the requesting app.
-    */
+     * This function performs a `POST` to the `/files/{fileId}/watch` endpoint.
+     *
+     * Subscribes to changes to a file
+     *
+     * **Parameters:**
+     *
+     * * `file_id: &str` -- A link to this theme's background image.
+     * * `acknowledge_abuse: bool` -- Whether the user is acknowledging the risk of downloading known malware or other abusive files. This is only applicable when alt=media.
+     * * `include_permissions_for_view: &str` -- Specifies which additional view's permissions to include in the response. Only 'published' is supported.
+     * * `supports_all_drives: bool` -- Whether the requesting application supports both My Drives and shared drives.
+     * * `supports_team_drives: bool` -- Whether the user has installed the requesting app.
+     */
     pub async fn watch(
         &self,
         file_id: &str,
@@ -640,7 +725,7 @@ impl Files {
         supports_all_drives: bool,
         supports_team_drives: bool,
         body: &crate::types::Channel,
-    ) -> Result<crate::types::Channel> {
+    ) -> ClientResult<crate::types::Channel> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if acknowledge_abuse {
             query_args.push((
@@ -667,14 +752,22 @@ impl Files {
             ));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/files/{}/watch?{}",
-            crate::progenitor_support::encode_path(file_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/files/{}/watch?{}",
+                crate::progenitor_support::encode_path(file_id),
+                query_
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
 }

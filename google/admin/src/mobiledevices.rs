@@ -1,6 +1,5 @@
-use anyhow::Result;
-
 use crate::Client;
+use crate::ClientResult;
 
 pub struct Mobiledevices {
     pub client: Client,
@@ -13,20 +12,20 @@ impl Mobiledevices {
     }
 
     /**
-    * This function performs a `GET` to the `/admin/directory/v1/customer/{customerId}/devices/mobile` endpoint.
-    *
-    * Retrieves a paginated list of all mobile devices for an account.
-    *
-    * **Parameters:**
-    *
-    * * `customer_id: &str` -- The unique ID for the customer's Google Workspace account. As an account administrator, you can also use the `my_customer` alias to represent your account's `customerId`. The `customerId` is also returned as part of the [Users resource](/admin-sdk/directory/v1/reference/users).
-    * * `max_results: i64` -- Maximum number of results to return. Max allowed value is 100.
-    * * `order_by: crate::types::DirectoryMobiledevicesListOrderBy` -- Device property to use for sorting results.
-    * * `page_token: &str` -- Token to specify next page in the list.
-    * * `projection: crate::types::Projection` -- Restrict information returned to a set of selected fields.
-    * * `query: &str` -- Search string in the format given at https://developers.google.com/admin-sdk/directory/v1/search-operators.
-    * * `sort_order: crate::types::SortOrder` -- Whether to return results in ascending or descending order. Must be used with the `orderBy` parameter.
-    */
+     * This function performs a `GET` to the `/admin/directory/v1/customer/{customerId}/devices/mobile` endpoint.
+     *
+     * Retrieves a paginated list of all mobile devices for an account.
+     *
+     * **Parameters:**
+     *
+     * * `customer_id: &str` -- The unique ID for the customer's Google Workspace account. As an account administrator, you can also use the `my_customer` alias to represent your account's `customerId`. The `customerId` is also returned as part of the [Users resource](/admin-sdk/directory/v1/reference/users).
+     * * `max_results: i64` -- Maximum number of results to return. Max allowed value is 100.
+     * * `order_by: crate::types::DirectoryMobiledevicesListOrderBy` -- Device property to use for sorting results.
+     * * `page_token: &str` -- Token to specify next page in the list.
+     * * `projection: crate::types::Projection` -- Restrict information returned to a set of selected fields.
+     * * `query: &str` -- Search string in the format given at https://developers.google.com/admin-sdk/directory/v1/search-operators.
+     * * `sort_order: crate::types::SortOrder` -- Whether to return results in ascending or descending order. Must be used with the `orderBy` parameter.
+     */
     pub async fn list(
         &self,
         customer_id: &str,
@@ -36,7 +35,7 @@ impl Mobiledevices {
         projection: crate::types::Projection,
         query: &str,
         sort_order: crate::types::SortOrder,
-    ) -> Result<Vec<crate::types::MobileDevice>> {
+    ) -> ClientResult<Vec<crate::types::MobileDevice>> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if max_results > 0 {
             query_args.push(("maxResults".to_string(), max_results.to_string()));
@@ -57,25 +56,35 @@ impl Mobiledevices {
             query_args.push(("sortOrder".to_string(), sort_order.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/directory/v1/customer/{}/devices/mobile?{}",
-            crate::progenitor_support::encode_path(customer_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/directory/v1/customer/{}/devices/mobile?{}",
+                crate::progenitor_support::encode_path(customer_id),
+                query_
+            ),
+            None,
         );
-
-        let resp: crate::types::MobileDevices = self.client.get(&url, None).await?;
+        let resp: crate::types::MobileDevices = self
+            .client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await?;
 
         // Return our response data.
         Ok(resp.mobiledevices.to_vec())
     }
-
     /**
-    * This function performs a `GET` to the `/admin/directory/v1/customer/{customerId}/devices/mobile` endpoint.
-    *
-    * As opposed to `list`, this function returns all the pages of the request at once.
-    *
-    * Retrieves a paginated list of all mobile devices for an account.
-    */
+     * This function performs a `GET` to the `/admin/directory/v1/customer/{customerId}/devices/mobile` endpoint.
+     *
+     * As opposed to `list`, this function returns all the pages of the request at once.
+     *
+     * Retrieves a paginated list of all mobile devices for an account.
+     */
     pub async fn list_all(
         &self,
         customer_id: &str,
@@ -83,7 +92,7 @@ impl Mobiledevices {
         projection: crate::types::Projection,
         query: &str,
         sort_order: crate::types::SortOrder,
-    ) -> Result<Vec<crate::types::MobileDevice>> {
+    ) -> ClientResult<Vec<crate::types::MobileDevice>> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !order_by.to_string().is_empty() {
             query_args.push(("orderBy".to_string(), order_by.to_string()));
@@ -98,13 +107,24 @@ impl Mobiledevices {
             query_args.push(("sortOrder".to_string(), sort_order.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/directory/v1/customer/{}/devices/mobile?{}",
-            crate::progenitor_support::encode_path(customer_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/directory/v1/customer/{}/devices/mobile?{}",
+                crate::progenitor_support::encode_path(customer_id),
+                query_
+            ),
+            None,
         );
-
-        let mut resp: crate::types::MobileDevices = self.client.get(&url, None).await?;
+        let mut resp: crate::types::MobileDevices = self
+            .client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await?;
 
         let mut mobiledevices = resp.mobiledevices;
         let mut page = resp.next_page_token;
@@ -114,12 +134,24 @@ impl Mobiledevices {
             if !url.contains('?') {
                 resp = self
                     .client
-                    .get(&format!("{}?pageToken={}", url, page), None)
+                    .get(
+                        &format!("{}?pageToken={}", url, page),
+                        crate::Message {
+                            body: None,
+                            content_type: None,
+                        },
+                    )
                     .await?;
             } else {
                 resp = self
                     .client
-                    .get(&format!("{}&pageToken={}", url, page), None)
+                    .get(
+                        &format!("{}&pageToken={}", url, page),
+                        crate::Message {
+                            body: None,
+                            content_type: None,
+                        },
+                    )
                     .await?;
             }
 
@@ -135,83 +167,108 @@ impl Mobiledevices {
         // Return our response data.
         Ok(mobiledevices)
     }
-
     /**
-    * This function performs a `GET` to the `/admin/directory/v1/customer/{customerId}/devices/mobile/{resourceId}` endpoint.
-    *
-    * Retrieves a mobile device's properties.
-    *
-    * **Parameters:**
-    *
-    * * `customer_id: &str` -- The unique ID for the customer's Google Workspace account. As an account administrator, you can also use the `my_customer` alias to represent your account's `customerId`. The `customerId` is also returned as part of the [Users resource](/admin-sdk/directory/v1/reference/users).
-    * * `resource_id: &str` -- The unique ID the API service uses to identify the mobile device.
-    * * `projection: crate::types::Projection` -- Restrict information returned to a set of selected fields.
-    */
+     * This function performs a `GET` to the `/admin/directory/v1/customer/{customerId}/devices/mobile/{resourceId}` endpoint.
+     *
+     * Retrieves a mobile device's properties.
+     *
+     * **Parameters:**
+     *
+     * * `customer_id: &str` -- The unique ID for the customer's Google Workspace account. As an account administrator, you can also use the `my_customer` alias to represent your account's `customerId`. The `customerId` is also returned as part of the [Users resource](/admin-sdk/directory/v1/reference/users).
+     * * `resource_id: &str` -- The unique ID the API service uses to identify the mobile device.
+     * * `projection: crate::types::Projection` -- Restrict information returned to a set of selected fields.
+     */
     pub async fn get(
         &self,
         customer_id: &str,
         resource_id: &str,
         projection: crate::types::Projection,
-    ) -> Result<crate::types::MobileDevice> {
+    ) -> ClientResult<crate::types::MobileDevice> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !projection.to_string().is_empty() {
             query_args.push(("projection".to_string(), projection.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/directory/v1/customer/{}/devices/mobile/{}?{}",
-            crate::progenitor_support::encode_path(customer_id),
-            crate::progenitor_support::encode_path(resource_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/directory/v1/customer/{}/devices/mobile/{}?{}",
+                crate::progenitor_support::encode_path(customer_id),
+                crate::progenitor_support::encode_path(resource_id),
+                query_
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * This function performs a `DELETE` to the `/admin/directory/v1/customer/{customerId}/devices/mobile/{resourceId}` endpoint.
-    *
-    * Removes a mobile device.
-    *
-    * **Parameters:**
-    *
-    * * `customer_id: &str` -- The unique ID for the customer's Google Workspace account. As an account administrator, you can also use the `my_customer` alias to represent your account's `customerId`. The `customerId` is also returned as part of the [Users resource](/admin-sdk/directory/v1/reference/users).
-    * * `resource_id: &str` -- The unique ID the API service uses to identify the mobile device.
-    */
-    pub async fn delete(&self, customer_id: &str, resource_id: &str) -> Result<()> {
-        let url = format!(
-            "/admin/directory/v1/customer/{}/devices/mobile/{}",
-            crate::progenitor_support::encode_path(customer_id),
-            crate::progenitor_support::encode_path(resource_id),
+     * This function performs a `DELETE` to the `/admin/directory/v1/customer/{customerId}/devices/mobile/{resourceId}` endpoint.
+     *
+     * Removes a mobile device.
+     *
+     * **Parameters:**
+     *
+     * * `customer_id: &str` -- The unique ID for the customer's Google Workspace account. As an account administrator, you can also use the `my_customer` alias to represent your account's `customerId`. The `customerId` is also returned as part of the [Users resource](/admin-sdk/directory/v1/reference/users).
+     * * `resource_id: &str` -- The unique ID the API service uses to identify the mobile device.
+     */
+    pub async fn delete(&self, customer_id: &str, resource_id: &str) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/directory/v1/customer/{}/devices/mobile/{}",
+                crate::progenitor_support::encode_path(customer_id),
+                crate::progenitor_support::encode_path(resource_id),
+            ),
+            None,
         );
-
-        self.client.delete(&url, None).await
+        self.client
+            .delete(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * This function performs a `POST` to the `/admin/directory/v1/customer/{customerId}/devices/mobile/{resourceId}/action` endpoint.
-    *
-    * Takes an action that affects a mobile device. For example, remotely wiping a device.
-    *
-    * **Parameters:**
-    *
-    * * `customer_id: &str` -- The unique ID for the customer's Google Workspace account. As an account administrator, you can also use the `my_customer` alias to represent your account's `customerId`. The `customerId` is also returned as part of the [Users resource](/admin-sdk/directory/v1/reference/users).
-    * * `resource_id: &str` -- The unique ID the API service uses to identify the mobile device.
-    */
+     * This function performs a `POST` to the `/admin/directory/v1/customer/{customerId}/devices/mobile/{resourceId}/action` endpoint.
+     *
+     * Takes an action that affects a mobile device. For example, remotely wiping a device.
+     *
+     * **Parameters:**
+     *
+     * * `customer_id: &str` -- The unique ID for the customer's Google Workspace account. As an account administrator, you can also use the `my_customer` alias to represent your account's `customerId`. The `customerId` is also returned as part of the [Users resource](/admin-sdk/directory/v1/reference/users).
+     * * `resource_id: &str` -- The unique ID the API service uses to identify the mobile device.
+     */
     pub async fn action(
         &self,
         customer_id: &str,
         resource_id: &str,
         body: &crate::types::MobileDeviceAction,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/directory/v1/customer/{}/devices/mobile/{}/action",
-            crate::progenitor_support::encode_path(customer_id),
-            crate::progenitor_support::encode_path(resource_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/directory/v1/customer/{}/devices/mobile/{}/action",
+                crate::progenitor_support::encode_path(customer_id),
+                crate::progenitor_support::encode_path(resource_id),
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
 }

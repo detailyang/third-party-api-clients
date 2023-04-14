@@ -1,6 +1,5 @@
-use anyhow::Result;
-
 use crate::Client;
+use crate::ClientResult;
 
 pub struct Templates {
     pub client: Client,
@@ -13,27 +12,27 @@ impl Templates {
     }
 
     /**
-    * List templates.
-    *
-    * This function performs a `GET` to the `/templates` endpoint.
-    *
-    * Get a list of an account's available templates.
-    *
-    * **Parameters:**
-    *
-    * * `fields: &[String]` -- A comma-separated list of fields to return. Reference parameters of sub-objects with dot notation.
-    * * `exclude_fields: &[String]` -- A comma-separated list of fields to return. Reference parameters of sub-objects with dot notation.
-    * * `count: i64` -- The number of records to return. Default value is 10. Maximum value is 1000.
-    * * `offset: i64` -- Used for [pagination](https://mailchimp.com/developer/marketing/docs/methods-parameters/#pagination), this it the number of records from a collection to skip. Default value is 0.
-    * * `created_by: &str` -- The Mailchimp account user who created the template.
-    * * `since_date_created: &str` -- Restrict the response to templates created after the set date. Uses ISO 8601 time format: 2015-10-21T15:41:36+00:00.
-    * * `before_date_created: &str` -- Restrict the response to templates created before the set date. Uses ISO 8601 time format: 2015-10-21T15:41:36+00:00.
-    * * `type_: &str` -- Limit results based on template type.
-    * * `category: &str` -- Limit results based on category.
-    * * `folder_id: &str` -- The name of the folder.
-    * * `sort_field: crate::types::GetTemplatesSortField` -- Returns user templates sorted by the specified field.
-    * * `sort_dir: crate::types::SortDir` -- Determines the order direction for sorted results.
-    */
+     * List templates.
+     *
+     * This function performs a `GET` to the `/templates` endpoint.
+     *
+     * Get a list of an account's available templates.
+     *
+     * **Parameters:**
+     *
+     * * `fields: &[String]` -- A comma-separated list of fields to return. Reference parameters of sub-objects with dot notation.
+     * * `exclude_fields: &[String]` -- A comma-separated list of fields to return. Reference parameters of sub-objects with dot notation.
+     * * `count: i64` -- The number of records to return. Default value is 10. Maximum value is 1000.
+     * * `offset: i64` -- Used for [pagination](https://mailchimp.com/developer/marketing/docs/methods-parameters/#pagination), this it the number of records from a collection to skip. Default value is 0.
+     * * `created_by: &str` -- The Mailchimp account user who created the template.
+     * * `since_date_created: &str` -- Restrict the response to templates created after the set date. Uses ISO 8601 time format: 2015-10-21T15:41:36+00:00.
+     * * `before_date_created: &str` -- Restrict the response to templates created before the set date. Uses ISO 8601 time format: 2015-10-21T15:41:36+00:00.
+     * * `type_: &str` -- Limit results based on template type.
+     * * `category: &str` -- Limit results based on category.
+     * * `folder_id: &str` -- The name of the folder.
+     * * `sort_field: crate::types::GetTemplatesSortField` -- Returns user templates sorted by the specified field.
+     * * `sort_dir: crate::types::SortDir` -- Determines the order direction for sorted results.
+     */
     pub async fn get(
         &self,
         fields: &[String],
@@ -48,7 +47,7 @@ impl Templates {
         folder_id: &str,
         sort_field: crate::types::GetTemplatesSortField,
         sort_dir: crate::types::SortDir,
-    ) -> Result<crate::types::TemplatesData> {
+    ) -> ClientResult<crate::types::TemplatesData> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !before_date_created.is_empty() {
             query_args.push((
@@ -93,47 +92,58 @@ impl Templates {
             query_args.push(("type".to_string(), type_.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/templates?{}", query_);
-
-        self.client.get(&url, None).await
+        let url = self.client.url(&format!("/templates?{}", query_), None);
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Add template.
-    *
-    * This function performs a `POST` to the `/templates` endpoint.
-    *
-    * Create a new template for the account. Only Classic templates are supported.
-    */
+     * Add template.
+     *
+     * This function performs a `POST` to the `/templates` endpoint.
+     *
+     * Create a new template for the account. Only Classic templates are supported.
+     */
     pub async fn post(
         &self,
         body: &crate::types::TemplateInstance,
-    ) -> Result<crate::types::Templates> {
-        let url = "/templates".to_string();
+    ) -> ClientResult<crate::types::Templates> {
+        let url = self.client.url("/templates", None);
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: None,
+                },
+            )
             .await
     }
-
     /**
-    * Get template info.
-    *
-    * This function performs a `GET` to the `/templates/{template_id}` endpoint.
-    *
-    * Get information about a specific template.
-    *
-    * **Parameters:**
-    *
-    * * `fields: &[String]` -- A comma-separated list of fields to return. Reference parameters of sub-objects with dot notation.
-    * * `exclude_fields: &[String]` -- A comma-separated list of fields to return. Reference parameters of sub-objects with dot notation.
-    * * `template_id: &str` -- The unique id for the template.
-    */
+     * Get template info.
+     *
+     * This function performs a `GET` to the `/templates/{template_id}` endpoint.
+     *
+     * Get information about a specific template.
+     *
+     * **Parameters:**
+     *
+     * * `fields: &[String]` -- A comma-separated list of fields to return. Reference parameters of sub-objects with dot notation.
+     * * `exclude_fields: &[String]` -- A comma-separated list of fields to return. Reference parameters of sub-objects with dot notation.
+     * * `template_id: &str` -- The unique id for the template.
+     */
     pub async fn get_templates(
         &self,
         fields: &[String],
         exclude_fields: &[String],
         template_id: &str,
-    ) -> Result<crate::types::Templates> {
+    ) -> ClientResult<crate::types::Templates> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !exclude_fields.is_empty() {
             query_args.push(("exclude_fields".to_string(), exclude_fields.join(" ")));
@@ -142,80 +152,105 @@ impl Templates {
             query_args.push(("fields".to_string(), fields.join(" ")));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/templates/{}?{}",
-            crate::progenitor_support::encode_path(template_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/templates/{}?{}",
+                crate::progenitor_support::encode_path(template_id),
+                query_
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Delete template.
-    *
-    * This function performs a `DELETE` to the `/templates/{template_id}` endpoint.
-    *
-    * Delete a specific template.
-    *
-    * **Parameters:**
-    *
-    * * `template_id: &str` -- The unique id for the template.
-    */
-    pub async fn delete(&self, template_id: &str) -> Result<()> {
-        let url = format!(
-            "/templates/{}",
-            crate::progenitor_support::encode_path(template_id),
+     * Delete template.
+     *
+     * This function performs a `DELETE` to the `/templates/{template_id}` endpoint.
+     *
+     * Delete a specific template.
+     *
+     * **Parameters:**
+     *
+     * * `template_id: &str` -- The unique id for the template.
+     */
+    pub async fn delete(&self, template_id: &str) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/templates/{}",
+                crate::progenitor_support::encode_path(template_id),
+            ),
+            None,
         );
-
-        self.client.delete(&url, None).await
+        self.client
+            .delete(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Update template.
-    *
-    * This function performs a `PATCH` to the `/templates/{template_id}` endpoint.
-    *
-    * Update the name, HTML, or `folder_id` of an existing template.
-    *
-    * **Parameters:**
-    *
-    * * `template_id: &str` -- The unique id for the template.
-    */
+     * Update template.
+     *
+     * This function performs a `PATCH` to the `/templates/{template_id}` endpoint.
+     *
+     * Update the name, HTML, or `folder_id` of an existing template.
+     *
+     * **Parameters:**
+     *
+     * * `template_id: &str` -- The unique id for the template.
+     */
     pub async fn patch(
         &self,
         template_id: &str,
         body: &crate::types::TemplateInstance,
-    ) -> Result<crate::types::Templates> {
-        let url = format!(
-            "/templates/{}",
-            crate::progenitor_support::encode_path(template_id),
+    ) -> ClientResult<crate::types::Templates> {
+        let url = self.client.url(
+            &format!(
+                "/templates/{}",
+                crate::progenitor_support::encode_path(template_id),
+            ),
+            None,
         );
-
         self.client
-            .patch(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .patch(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: None,
+                },
+            )
             .await
     }
-
     /**
-    * View default content.
-    *
-    * This function performs a `GET` to the `/templates/{template_id}/default-content` endpoint.
-    *
-    * Get the sections that you can edit in a template, including each section's default content.
-    *
-    * **Parameters:**
-    *
-    * * `fields: &[String]` -- A comma-separated list of fields to return. Reference parameters of sub-objects with dot notation.
-    * * `exclude_fields: &[String]` -- A comma-separated list of fields to return. Reference parameters of sub-objects with dot notation.
-    * * `template_id: &str` -- The unique id for the template.
-    */
+     * View default content.
+     *
+     * This function performs a `GET` to the `/templates/{template_id}/default-content` endpoint.
+     *
+     * Get the sections that you can edit in a template, including each section's default content.
+     *
+     * **Parameters:**
+     *
+     * * `fields: &[String]` -- A comma-separated list of fields to return. Reference parameters of sub-objects with dot notation.
+     * * `exclude_fields: &[String]` -- A comma-separated list of fields to return. Reference parameters of sub-objects with dot notation.
+     * * `template_id: &str` -- The unique id for the template.
+     */
     pub async fn get_default_content(
         &self,
         fields: &[String],
         exclude_fields: &[String],
         template_id: &str,
-    ) -> Result<crate::types::TemplateDefaultContent> {
+    ) -> ClientResult<crate::types::TemplateDefaultContent> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !exclude_fields.is_empty() {
             query_args.push(("exclude_fields".to_string(), exclude_fields.join(" ")));
@@ -224,12 +259,22 @@ impl Templates {
             query_args.push(("fields".to_string(), fields.join(" ")));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/templates/{}/default-content?{}",
-            crate::progenitor_support::encode_path(template_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/templates/{}/default-content?{}",
+                crate::progenitor_support::encode_path(template_id),
+                query_
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
 }

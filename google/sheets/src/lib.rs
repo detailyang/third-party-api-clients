@@ -35,7 +35,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! sheets = "0.2.3"
+//! sheets = "0.6.0"
 //! ```
 //!
 //! ## Basic example
@@ -101,6 +101,7 @@
 //! }
 //! ```
 //!
+#![allow(clippy::derive_partial_eq_without_eq)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::nonstandard_macro_braces)]
 #![allow(clippy::large_enum_variant)]
@@ -109,18 +110,48 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 pub mod spreadsheets;
-#[cfg(test)]
-mod tests;
 pub mod traits;
 pub mod types;
 #[doc(hidden)]
 pub mod utils;
 
-use std::io::Write;
+use thiserror::Error;
+type ClientResult<T> = Result<T, ClientError>;
 
-use anyhow::{anyhow, Error, Result};
+/// Errors returned by the client
+#[derive(Debug, Error)]
+pub enum ClientError {
+    // Generic Token Client
+    /// Empty refresh auth token
+    #[error("Refresh AuthToken is empty")]
+    EmptyRefreshToken,
+    /// utf8 convertion error
+    #[error(transparent)]
+    FromUtf8Error(#[from] std::string::FromUtf8Error),
+    /// URL Parsing Error
+    #[error(transparent)]
+    UrlParserError(#[from] url::ParseError),
+    /// Serde JSON parsing error
+    #[error(transparent)]
+    SerdeJsonError(#[from] serde_json::Error),
+    /// Errors returned by reqwest
+    #[error(transparent)]
+    ReqwestError(#[from] reqwest::Error),
+    /// Errors returned by reqwest::header
+    #[error(transparent)]
+    InvalidHeaderValue(#[from] reqwest::header::InvalidHeaderValue),
+    /// Errors returned by reqwest middleware
+    #[error(transparent)]
+    ReqwestMiddleWareError(#[from] reqwest_middleware::Error),
+    /// Generic HTTP Error
+    #[error("HTTP Error. Code: {status}, message: {error}")]
+    HttpError {
+        status: http::StatusCode,
+        error: String,
+    },
+}
 
-pub const DEFAULT_HOST: &str = "https://sheets.googleapis.com";
+pub const FALLBACK_HOST: &str = "https://sheets.googleapis.com";
 
 mod progenitor_support {
     use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
@@ -142,23 +173,42 @@ mod progenitor_support {
     }
 }
 
+#[derive(Debug, Default)]
+pub(crate) struct Message {
+    pub body: Option<reqwest::Body>,
+    pub content_type: Option<String>,
+}
+
+use std::convert::TryInto;
 use std::env;
+use std::ops::Add;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+use tokio::sync::RwLock;
 
 const TOKEN_ENDPOINT: &str = "https://oauth2.googleapis.com/token";
 const USER_CONSENT_ENDPOINT: &str = "https://accounts.google.com/o/oauth2/v2/auth";
+
+#[derive(Debug, Default, Clone)]
+pub struct RootDefaultServer {}
+
+impl RootDefaultServer {
+    pub fn default_url(&self) -> &str {
+        "https://sheets.googleapis.com/"
+    }
+}
 
 /// Entrypoint for interacting with the API client.
 #[derive(Clone)]
 pub struct Client {
     host: String,
-    token: String,
-    // This will expire within a certain amount of time as determined by the
-    // expiration date passed back in the initial request.
-    refresh_token: String,
+    host_override: Option<String>,
+    token: Arc<RwLock<InnerToken>>,
     client_id: String,
     client_secret: String,
     redirect_uri: String,
 
+    auto_refresh: bool,
     client: reqwest_middleware::ClientWithMiddleware,
 }
 
@@ -200,6 +250,18 @@ pub struct AccessToken {
     pub scope: String,
 }
 
+/// Time in seconds before the access token expiration point that a refresh should
+/// be performed. This value is subtracted from the `expires_in` value returned by
+/// the provider prior to storing
+const REFRESH_THRESHOLD: Duration = Duration::from_secs(60);
+
+#[derive(Debug, Clone)]
+struct InnerToken {
+    access_token: String,
+    refresh_token: String,
+    expires_at: Option<Instant>,
+}
+
 impl Client {
     /// Create a new Client struct. It takes a type that can convert into
     /// an &str (`String` or `Vec<u8>` for example). As long as the function is
@@ -224,28 +286,31 @@ impl Client {
         let client = reqwest::Client::builder().build();
         match client {
             Ok(c) => {
-                // We do not refresh the access token here since we leave that up to the
-                // user to do so they can re-save it to their database.
-                // TODO: But in the future we should save the expires in date and refresh it
-                // if it needs to be refreshed.
-                //
                 let client = reqwest_middleware::ClientBuilder::new(c)
                     // Trace HTTP requests. See the tracing crate to make use of these traces.
-                    .with(reqwest_tracing::TracingMiddleware)
+                    .with(reqwest_tracing::TracingMiddleware::default())
                     // Retry failed requests.
-                    .with(reqwest_retry::RetryTransientMiddleware::new_with_policy(
-                        retry_policy,
+                    .with(reqwest_conditional_middleware::ConditionalMiddleware::new(
+                        reqwest_retry::RetryTransientMiddleware::new_with_policy(retry_policy),
+                        |req: &reqwest::Request| req.try_clone().is_some(),
                     ))
                     .build();
 
+                let host = RootDefaultServer::default().default_url().to_string();
+
                 Client {
-                    host: DEFAULT_HOST.to_string(),
+                    host,
+                    host_override: None,
                     client_id: client_id.to_string(),
                     client_secret: client_secret.to_string(),
                     redirect_uri: redirect_uri.to_string(),
-                    token: token.to_string(),
-                    refresh_token: refresh_token.to_string(),
+                    token: Arc::new(RwLock::new(InnerToken {
+                        access_token: token.to_string(),
+                        refresh_token: refresh_token.to_string(),
+                        expires_at: None,
+                    })),
 
+                    auto_refresh: false,
                     client,
                 }
             }
@@ -253,14 +318,93 @@ impl Client {
         }
     }
 
-    /// Override the default host for the client.
-    pub fn with_host<H>(&self, host: H) -> Self
+    /// Enables or disables the automatic refreshing of access tokens upon expiration
+    pub fn set_auto_access_token_refresh(&mut self, enabled: bool) -> &mut Self {
+        self.auto_refresh = enabled;
+        self
+    }
+
+    /// Sets a specific `Instant` at which the access token should be considered expired.
+    /// The expiration value will only be used when automatic access token refreshing is
+    /// also enabled. `None` may be passed in if the expiration is unknown. In this case
+    /// automatic refreshes will be attempted when encountering an UNAUTHENTICATED status
+    /// code on a response.
+    pub async fn set_expires_at(&self, expires_at: Option<Instant>) -> &Self {
+        self.token.write().await.expires_at = expires_at;
+        self
+    }
+
+    /// Gets the `Instant` at which the access token used by this client is set to expire
+    /// if one is known
+    pub async fn expires_at(&self) -> Option<Instant> {
+        self.token.read().await.expires_at
+    }
+
+    /// Sets the number of seconds in which the current access token should be considered
+    /// expired
+    pub async fn set_expires_in(&self, expires_in: i64) -> &Self {
+        self.token.write().await.expires_at = Self::compute_expires_at(expires_in);
+        self
+    }
+
+    /// Gets the number of seconds from now in which the current access token will be
+    /// considered expired if one is known
+    pub async fn expires_in(&self) -> Option<Duration> {
+        self.token
+            .read()
+            .await
+            .expires_at
+            .map(|i| i.duration_since(Instant::now()))
+    }
+
+    /// Determines if the access token currently stored in the client is expired. If the
+    /// expiration can not be determined, None is returned
+    pub async fn is_expired(&self) -> Option<bool> {
+        self.token
+            .read()
+            .await
+            .expires_at
+            .map(|expiration| expiration <= Instant::now())
+    }
+
+    fn compute_expires_at(expires_in: i64) -> Option<Instant> {
+        let seconds_valid = expires_in
+            .try_into()
+            .ok()
+            .map(Duration::from_secs)
+            .and_then(|dur| dur.checked_sub(REFRESH_THRESHOLD))
+            .or_else(|| Some(Duration::from_secs(0)));
+
+        seconds_valid.map(|seconds_valid| Instant::now().add(seconds_valid))
+    }
+
+    /// Override the host for all endpoins in the client.
+    pub fn with_host_override<H>(&mut self, host: H) -> &mut Self
     where
         H: ToString,
     {
-        let mut c = self.clone();
-        c.host = host.to_string();
-        c
+        self.host_override = Some(host.to_string());
+        self
+    }
+
+    /// Disables the global host override for the client.
+    pub fn remove_host_override(&mut self) -> &mut Self {
+        self.host_override = None;
+        self
+    }
+
+    pub fn get_host_override(&self) -> Option<&str> {
+        self.host_override.as_deref()
+    }
+
+    pub(crate) fn url(&self, path: &str, host: Option<&str>) -> String {
+        format!(
+            "{}{}",
+            self.get_host_override()
+                .or(host)
+                .unwrap_or(self.host.as_str()),
+            path
+        )
     }
 
     /// Create a new Client struct from environment variables. It
@@ -275,47 +419,40 @@ impl Client {
         R: ToString,
     {
         let google_key = env::var("GOOGLE_KEY_ENCODED").unwrap_or_default();
-        let b = base64::decode(google_key).unwrap();
-        // Save the google key to a tmp file.
-        let mut file_path = env::temp_dir();
-        file_path.push("google_key.json");
-        // Create the file and write to it.
-        let mut file = std::fs::File::create(file_path.clone()).unwrap();
-        file.write_all(&b).unwrap();
-        // Set the Google credential file to the temp path.
-        let google_credential_file = file_path.to_str().unwrap().to_string();
-
-        let secret = yup_oauth2::read_application_secret(google_credential_file)
-            .await
-            .expect("failed to read google credential file");
+        let decoded_google_key = base64::decode(google_key).unwrap();
+        let secret = yup_oauth2::parse_application_secret(decoded_google_key)
+            .expect("failed to read from google credential env var");
 
         let client = reqwest::Client::builder().build();
         let retry_policy =
             reqwest_retry::policies::ExponentialBackoff::builder().build_with_max_retries(3);
+
         match client {
             Ok(c) => {
-                // We do not refresh the access token here since we leave that up to the
-                // user to do so they can re-save it to their database.
-                // TODO: But in the future we should save the expires in date and refresh it
-                // if it needs to be refreshed.
-                //
                 let client = reqwest_middleware::ClientBuilder::new(c)
                     // Trace HTTP requests. See the tracing crate to make use of these traces.
-                    .with(reqwest_tracing::TracingMiddleware)
+                    .with(reqwest_tracing::TracingMiddleware::default())
                     // Retry failed requests.
-                    .with(reqwest_retry::RetryTransientMiddleware::new_with_policy(
-                        retry_policy,
+                    .with(reqwest_conditional_middleware::ConditionalMiddleware::new(
+                        reqwest_retry::RetryTransientMiddleware::new_with_policy(retry_policy),
+                        |req: &reqwest::Request| req.try_clone().is_some(),
                     ))
                     .build();
 
+                let host = RootDefaultServer::default().default_url().to_string();
+
                 Client {
-                    host: DEFAULT_HOST.to_string(),
+                    host,
+                    host_override: None,
                     client_id: secret.client_id.to_string(),
                     client_secret: secret.client_secret.to_string(),
                     redirect_uri: secret.redirect_uris[0].to_string(),
-                    token: token.to_string(),
-                    refresh_token: refresh_token.to_string(),
-
+                    token: Arc::new(RwLock::new(InnerToken {
+                        access_token: token.to_string(),
+                        refresh_token: refresh_token.to_string(),
+                        expires_at: None,
+                    })),
+                    auto_refresh: false,
                     client,
                 }
             }
@@ -329,7 +466,7 @@ impl Client {
         let state = uuid::Uuid::new_v4();
 
         let url = format!(
-            "{}?client_id={}&response_type=code&redirect_uri={}&state={}",
+            "{}?client_id={}&access_type=offline&response_type=code&redirect_uri={}&state={}",
             USER_CONSENT_ENDPOINT, self.client_id, self.redirect_uri, state
         );
 
@@ -343,45 +480,54 @@ impl Client {
 
     /// Refresh an access token from a refresh token. Client must have a refresh token
     /// for this to work.
-    pub async fn refresh_access_token(&mut self) -> Result<AccessToken> {
-        if self.refresh_token.is_empty() {
-            anyhow!("refresh token cannot be empty");
-        }
+    pub async fn refresh_access_token(&self) -> ClientResult<AccessToken> {
+        let response = {
+            let refresh_token = &self.token.read().await.refresh_token;
 
-        let mut headers = reqwest::header::HeaderMap::new();
-        headers.append(
-            reqwest::header::ACCEPT,
-            reqwest::header::HeaderValue::from_static("application/json"),
-        );
+            if refresh_token.is_empty() {
+                return Err(ClientError::EmptyRefreshToken);
+            }
 
-        let params = [
-            ("grant_type", "refresh_token"),
-            ("refresh_token", &self.refresh_token),
-            ("client_id", &self.client_id),
-            ("client_secret", &self.client_secret),
-            ("redirect_uri", &self.redirect_uri),
-        ];
-        let client = reqwest::Client::new();
-        let resp = client
-            .post(TOKEN_ENDPOINT)
-            .headers(headers)
-            .form(&params)
-            .basic_auth(&self.client_id, Some(&self.client_secret))
-            .send()
-            .await?;
+            let mut headers = reqwest::header::HeaderMap::new();
+            headers.append(
+                reqwest::header::ACCEPT,
+                reqwest::header::HeaderValue::from_static("application/json"),
+            );
+
+            let params = [
+                ("grant_type", "refresh_token"),
+                ("refresh_token", refresh_token),
+                ("client_id", &self.client_id),
+                ("client_secret", &self.client_secret),
+                ("redirect_uri", &self.redirect_uri),
+            ];
+            let client = reqwest::Client::new();
+            client
+                .post(TOKEN_ENDPOINT)
+                .headers(headers)
+                .form(&params)
+                .basic_auth(&self.client_id, Some(&self.client_secret))
+                .send()
+                .await?
+        };
 
         // Unwrap the response.
-        let t: AccessToken = resp.json().await?;
+        let t: AccessToken = response.json().await?;
 
-        self.token = t.access_token.to_string();
-        self.refresh_token = t.refresh_token.to_string();
+        let refresh_token = self.token.read().await.refresh_token.clone();
+
+        *self.token.write().await = InnerToken {
+            access_token: t.access_token.clone(),
+            refresh_token,
+            expires_at: Self::compute_expires_at(t.expires_in),
+        };
 
         Ok(t)
     }
 
     /// Get an access token from the code returned by the URL paramter sent to the
     /// redirect URL.
-    pub async fn get_access_token(&mut self, code: &str, state: &str) -> Result<AccessToken> {
+    pub async fn get_access_token(&mut self, code: &str, state: &str) -> ClientResult<AccessToken> {
         let mut headers = reqwest::header::HeaderMap::new();
         headers.append(
             reqwest::header::ACCEPT,
@@ -408,31 +554,29 @@ impl Client {
         // Unwrap the response.
         let t: AccessToken = resp.json().await?;
 
-        self.token = t.access_token.to_string();
-        self.refresh_token = t.refresh_token.to_string();
+        *self.token.write().await = InnerToken {
+            access_token: t.access_token.clone(),
+            refresh_token: t.refresh_token.clone(),
+            expires_at: Self::compute_expires_at(t.expires_in),
+        };
 
         Ok(t)
     }
 
-    async fn url_and_auth(&self, uri: &str) -> Result<(reqwest::Url, Option<String>)> {
-        let parsed_url = uri.parse::<reqwest::Url>();
+    async fn url_and_auth(&self, uri: &str) -> ClientResult<(reqwest::Url, Option<String>)> {
+        let parsed_url = uri.parse::<reqwest::Url>()?;
 
-        let auth = format!("Bearer {}", self.token);
-        parsed_url.map(|u| (u, Some(auth))).map_err(Error::from)
+        let auth = format!("Bearer {}", self.token.read().await.access_token);
+        Ok((parsed_url, Some(auth)))
     }
 
-    async fn request_raw(
+    async fn make_request(
         &self,
-        method: reqwest::Method,
+        method: &reqwest::Method,
         uri: &str,
-        body: Option<reqwest::Body>,
-    ) -> Result<reqwest::Response> {
-        let u = if uri.starts_with("https://") {
-            uri.to_string()
-        } else {
-            (self.host.clone() + uri).to_string()
-        };
-        let (url, auth) = self.url_and_auth(&u).await?;
+        message: Message,
+    ) -> ClientResult<reqwest::Request> {
+        let (url, auth) = self.url_and_auth(uri).await?;
 
         let instance = <&Client>::clone(&self);
 
@@ -443,62 +587,105 @@ impl Client {
             reqwest::header::ACCEPT,
             reqwest::header::HeaderValue::from_static("application/json"),
         );
-        req = req.header(
-            reqwest::header::CONTENT_TYPE,
-            reqwest::header::HeaderValue::from_static("application/json"),
-        );
+
+        if let Some(content_type) = &message.content_type {
+            req = req.header(
+                reqwest::header::CONTENT_TYPE,
+                reqwest::header::HeaderValue::from_str(content_type).unwrap(),
+            );
+        } else {
+            req = req.header(
+                reqwest::header::CONTENT_TYPE,
+                reqwest::header::HeaderValue::from_static("application/json"),
+            );
+        }
 
         if let Some(auth_str) = auth {
             req = req.header(http::header::AUTHORIZATION, &*auth_str);
         }
 
-        if let Some(body) = body {
-            log::debug!(
-                "body: {:?}",
-                String::from_utf8(body.as_bytes().unwrap().to_vec()).unwrap()
-            );
+        if let Some(body) = message.body {
             req = req.body(body);
         }
-        Ok(req.send().await?)
+
+        Ok(req.build()?)
+    }
+
+    async fn request_raw(
+        &self,
+        method: reqwest::Method,
+        uri: &str,
+        message: Message,
+    ) -> ClientResult<reqwest::Response> {
+        if self.auto_refresh {
+            let expired = self.is_expired().await;
+
+            match expired {
+                // We have a known expired token, we know we need to perform a refresh prior to
+                // attempting to make a request
+                Some(true) => {
+                    self.refresh_access_token().await?;
+                }
+
+                // We have a (theoretically) known good token available. We make an optimistic
+                // attempting at the request. If the token is no longer good, then something other
+                // than the expiration is triggering the failure. We defer handling of these errors
+                // to the caller
+                Some(false) => (),
+
+                // We do not know what state we are in. We could have a valid or expired token.
+                // Generally this means we are in one of two cases:
+                //   1. We have not yet performed a token refresh, nor has the user provided
+                //      expiration data, and therefore do not know the expiration of the user
+                //      provided token
+                //   2. The provider is returning unusable expiration times, at which point we
+                //      choose to ignore them
+                None => (),
+            }
+        }
+
+        let req = self.make_request(&method, uri, message).await?;
+        let resp = self.client.execute(req).await?;
+
+        Ok(resp)
     }
 
     async fn request<Out>(
         &self,
         method: reqwest::Method,
         uri: &str,
-        body: Option<reqwest::Body>,
-    ) -> Result<Out>
+        message: Message,
+    ) -> ClientResult<Out>
     where
         Out: serde::de::DeserializeOwned + 'static + Send,
     {
-        let response = self.request_raw(method, uri, body).await?;
+        let response = self.request_raw(method, uri, message).await?;
 
         let status = response.status();
 
         let response_body = response.bytes().await?;
 
         if status.is_success() {
-            log::debug!(
-                "response payload {}",
-                String::from_utf8_lossy(&response_body)
-            );
+            log::debug!("Received successful response. Read payload.");
             let parsed_response = if status == http::StatusCode::NO_CONTENT
                 || std::any::TypeId::of::<Out>() == std::any::TypeId::of::<()>()
             {
-                serde_json::from_str("null")
+                serde_json::from_str("null")?
             } else {
-                serde_json::from_slice::<Out>(&response_body)
+                serde_json::from_slice::<Out>(&response_body)?
             };
-            parsed_response.map_err(Error::from)
+            Ok(parsed_response)
         } else {
             let error = if response_body.is_empty() {
-                anyhow!("code: {}, empty response", status)
-            } else {
-                anyhow!(
-                    "code: {}, error: {:?}",
+                ClientError::HttpError {
                     status,
-                    String::from_utf8_lossy(&response_body),
-                )
+                    error: "empty response".into(),
+                }
+            } else {
+                ClientError::HttpError {
+                    status,
+                    error: String::from_utf8_lossy(&response_body).into(),
+                }
             };
 
             Err(error)
@@ -509,45 +696,46 @@ impl Client {
         &self,
         method: http::Method,
         uri: &str,
-        body: Option<reqwest::Body>,
-    ) -> Result<(Option<hyperx::header::Link>, Out)>
+        message: Message,
+    ) -> ClientResult<(Option<crate::utils::NextLink>, Out)>
     where
         Out: serde::de::DeserializeOwned + 'static + Send,
     {
-        let response = self.request_raw(method, uri, body).await?;
+        let response = self.request_raw(method, uri, message).await?;
 
         let status = response.status();
         let link = response
             .headers()
             .get(http::header::LINK)
             .and_then(|l| l.to_str().ok())
-            .and_then(|l| l.parse().ok());
+            .and_then(|l| parse_link_header::parse(l).ok())
+            .as_ref()
+            .and_then(crate::utils::next_link);
 
         let response_body = response.bytes().await?;
 
         if status.is_success() {
-            log::debug!(
-                "response payload {}",
-                String::from_utf8_lossy(&response_body)
-            );
+            log::debug!("Received successful response. Read payload.");
 
             let parsed_response = if status == http::StatusCode::NO_CONTENT
                 || std::any::TypeId::of::<Out>() == std::any::TypeId::of::<()>()
             {
-                serde_json::from_str("null")
+                serde_json::from_str("null")?
             } else {
-                serde_json::from_slice::<Out>(&response_body)
+                serde_json::from_slice::<Out>(&response_body)?
             };
-            parsed_response.map(|out| (link, out)).map_err(Error::from)
+            Ok((link, parsed_response))
         } else {
             let error = if response_body.is_empty() {
-                anyhow!("code: {}, empty response", status)
-            } else {
-                anyhow!(
-                    "code: {}, error: {:?}",
+                ClientError::HttpError {
                     status,
-                    String::from_utf8_lossy(&response_body),
-                )
+                    error: "empty response".into(),
+                }
+            } else {
+                ClientError::HttpError {
+                    status,
+                    error: String::from_utf8_lossy(&response_body).into(),
+                }
             };
             Err(error)
         }
@@ -555,16 +743,11 @@ impl Client {
 
     /* TODO: make this more DRY */
     #[allow(dead_code)]
-    async fn post_form<Out>(&self, uri: &str, form: reqwest::multipart::Form) -> Result<Out>
+    async fn post_form<Out>(&self, uri: &str, form: reqwest::multipart::Form) -> ClientResult<Out>
     where
         Out: serde::de::DeserializeOwned + 'static + Send,
     {
-        let u = if uri.starts_with("https://") {
-            uri.to_string()
-        } else {
-            (self.host.clone() + uri).to_string()
-        };
-        let (url, auth) = self.url_and_auth(&u).await?;
+        let (url, auth) = self.url_and_auth(uri).await?;
 
         let instance = <&Client>::clone(&self);
 
@@ -575,16 +758,11 @@ impl Client {
             reqwest::header::ACCEPT,
             reqwest::header::HeaderValue::from_static("application/json"),
         );
-        req = req.header(
-            reqwest::header::CONTENT_TYPE,
-            reqwest::header::HeaderValue::from_static("application/json"),
-        );
 
         if let Some(auth_str) = auth {
             req = req.header(http::header::AUTHORIZATION, &*auth_str);
         }
 
-        log::debug!("form: {:?}", form);
         req = req.multipart(form);
 
         let response = req.send().await?;
@@ -594,32 +772,30 @@ impl Client {
         let response_body = response.bytes().await?;
 
         if status.is_success() {
-            log::debug!(
-                "response payload {}",
-                String::from_utf8_lossy(&response_body)
-            );
+            log::debug!("Received successful response. Read payload.");
             let parsed_response = if status == http::StatusCode::NO_CONTENT
                 || std::any::TypeId::of::<Out>() == std::any::TypeId::of::<()>()
             {
-                serde_json::from_str("null")
+                serde_json::from_str("null")?
             } else if std::any::TypeId::of::<Out>() == std::any::TypeId::of::<String>() {
                 // Parse the output as a string.
-                serde_json::from_value(serde_json::json!(&String::from_utf8(
-                    response_body.to_vec()
-                )?))
+                let s = String::from_utf8(response_body.to_vec())?;
+                serde_json::from_value(serde_json::json!(&s))?
             } else {
-                serde_json::from_slice::<Out>(&response_body)
+                serde_json::from_slice::<Out>(&response_body)?
             };
-            parsed_response.map_err(Error::from)
+            Ok(parsed_response)
         } else {
             let error = if response_body.is_empty() {
-                anyhow!("code: {}, empty response", status)
-            } else {
-                anyhow!(
-                    "code: {}, error: {:?}",
+                ClientError::HttpError {
                     status,
-                    String::from_utf8_lossy(&response_body),
-                )
+                    error: "empty response".into(),
+                }
+            } else {
+                ClientError::HttpError {
+                    status,
+                    error: String::from_utf8_lossy(&response_body).into(),
+                }
             };
 
             Err(error)
@@ -633,16 +809,11 @@ impl Client {
         method: reqwest::Method,
         uri: &str,
         accept_mime_type: &str,
-    ) -> Result<Out>
+    ) -> ClientResult<Out>
     where
         Out: serde::de::DeserializeOwned + 'static + Send,
     {
-        let u = if uri.starts_with("https://") {
-            uri.to_string()
-        } else {
-            (self.host.clone() + uri).to_string()
-        };
-        let (url, auth) = self.url_and_auth(&u).await?;
+        let (url, auth) = self.url_and_auth(uri).await?;
 
         let instance = <&Client>::clone(&self);
 
@@ -665,32 +836,30 @@ impl Client {
         let response_body = response.bytes().await?;
 
         if status.is_success() {
-            log::debug!(
-                "response payload {}",
-                String::from_utf8_lossy(&response_body)
-            );
+            log::debug!("Received successful response. Read payload.");
             let parsed_response = if status == http::StatusCode::NO_CONTENT
                 || std::any::TypeId::of::<Out>() == std::any::TypeId::of::<()>()
             {
-                serde_json::from_str("null")
+                serde_json::from_str("null")?
             } else if std::any::TypeId::of::<Out>() == std::any::TypeId::of::<String>() {
                 // Parse the output as a string.
-                serde_json::from_value(serde_json::json!(&String::from_utf8(
-                    response_body.to_vec()
-                )?))
+                let s = String::from_utf8(response_body.to_vec())?;
+                serde_json::from_value(serde_json::json!(&s))?
             } else {
-                serde_json::from_slice::<Out>(&response_body)
+                serde_json::from_slice::<Out>(&response_body)?
             };
-            parsed_response.map_err(Error::from)
+            Ok(parsed_response)
         } else {
             let error = if response_body.is_empty() {
-                anyhow!("code: {}, empty response", status)
-            } else {
-                anyhow!(
-                    "code: {}, error: {:?}",
+                ClientError::HttpError {
                     status,
-                    String::from_utf8_lossy(&response_body),
-                )
+                    error: "empty response".into(),
+                }
+            } else {
+                ClientError::HttpError {
+                    status,
+                    error: String::from_utf8_lossy(&response_body).into(),
+                }
             };
 
             Err(error)
@@ -705,16 +874,11 @@ impl Client {
         uri: &str,
         content: &[u8],
         mime_type: &str,
-    ) -> Result<Out>
+    ) -> ClientResult<Out>
     where
         Out: serde::de::DeserializeOwned + 'static + Send,
     {
-        let u = if uri.starts_with("https://") {
-            uri.to_string()
-        } else {
-            (self.host.clone() + uri).to_string()
-        };
-        let (url, auth) = self.url_and_auth(&u).await?;
+        let (url, auth) = self.url_and_auth(uri).await?;
 
         let instance = <&Client>::clone(&self);
 
@@ -757,27 +921,26 @@ impl Client {
         let response_body = response.bytes().await?;
 
         if status.is_success() {
-            log::debug!(
-                "response payload {}",
-                String::from_utf8_lossy(&response_body)
-            );
+            log::debug!("Received successful response. Read payload.");
             let parsed_response = if status == http::StatusCode::NO_CONTENT
                 || std::any::TypeId::of::<Out>() == std::any::TypeId::of::<()>()
             {
-                serde_json::from_str("null")
+                serde_json::from_str("null")?
             } else {
-                serde_json::from_slice::<Out>(&response_body)
+                serde_json::from_slice::<Out>(&response_body)?
             };
-            parsed_response.map_err(Error::from)
+            Ok(parsed_response)
         } else {
             let error = if response_body.is_empty() {
-                anyhow!("code: {}, empty response", status)
-            } else {
-                anyhow!(
-                    "code: {}, error: {:?}",
+                ClientError::HttpError {
                     status,
-                    String::from_utf8_lossy(&response_body),
-                )
+                    error: "empty response".into(),
+                }
+            } else {
+                ClientError::HttpError {
+                    status,
+                    error: String::from_utf8_lossy(&response_body).into(),
+                }
             };
 
             Err(error)
@@ -788,26 +951,25 @@ impl Client {
         &self,
         method: http::Method,
         uri: &str,
-        body: Option<reqwest::Body>,
-    ) -> Result<D>
+        message: Message,
+    ) -> ClientResult<D>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
-        let r = self.request(method, uri, body).await?;
+        let r = self.request(method, uri, message).await?;
         Ok(r)
     }
 
     #[allow(dead_code)]
-    async fn get<D>(&self, uri: &str, message: Option<reqwest::Body>) -> Result<D>
+    async fn get<D>(&self, uri: &str, message: Message) -> ClientResult<D>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
-        self.request_entity(http::Method::GET, &(self.host.to_string() + uri), message)
-            .await
+        self.request_entity(http::Method::GET, uri, message).await
     }
 
     #[allow(dead_code)]
-    async fn get_all_pages<D>(&self, uri: &str, _message: Option<reqwest::Body>) -> Result<Vec<D>>
+    async fn get_all_pages<D>(&self, uri: &str, _message: Message) -> ClientResult<Vec<D>>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
@@ -817,7 +979,7 @@ impl Client {
 
     /// "unfold" paginated results of a vector of items
     #[allow(dead_code)]
-    async fn unfold<D>(&self, uri: &str) -> Result<Vec<D>>
+    async fn unfold<D>(&self, uri: &str) -> ClientResult<Vec<D>>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
@@ -827,8 +989,8 @@ impl Client {
         while !items.is_empty() {
             global_items.append(&mut items);
             // We need to get the next link.
-            if let Some(url) = link.as_ref().and_then(crate::utils::next_link) {
-                let url = reqwest::Url::parse(&url)?;
+            if let Some(url) = link.as_ref() {
+                let url = reqwest::Url::parse(&url.0)?;
                 let (new_link, new_items) = self.get_pages_url(&url).await?;
                 link = new_link;
                 items = new_items;
@@ -839,11 +1001,14 @@ impl Client {
     }
 
     #[allow(dead_code)]
-    async fn get_pages<D>(&self, uri: &str) -> Result<(Option<hyperx::header::Link>, Vec<D>)>
+    async fn get_pages<D>(
+        &self,
+        uri: &str,
+    ) -> ClientResult<(Option<crate::utils::NextLink>, Vec<D>)>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
-        self.request_with_links(http::Method::GET, &(self.host.to_string() + uri), None)
+        self.request_with_links(http::Method::GET, uri, Message::default())
             .await
     }
 
@@ -851,52 +1016,45 @@ impl Client {
     async fn get_pages_url<D>(
         &self,
         url: &reqwest::Url,
-    ) -> Result<(Option<hyperx::header::Link>, Vec<D>)>
+    ) -> ClientResult<(Option<crate::utils::NextLink>, Vec<D>)>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
-        self.request_with_links(http::Method::GET, url.as_str(), None)
+        self.request_with_links(http::Method::GET, url.as_str(), Message::default())
             .await
     }
 
     #[allow(dead_code)]
-    async fn post<D>(&self, uri: &str, message: Option<reqwest::Body>) -> Result<D>
+    async fn post<D>(&self, uri: &str, message: Message) -> ClientResult<D>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
-        self.request_entity(http::Method::POST, &(self.host.to_string() + uri), message)
-            .await
+        self.request_entity(http::Method::POST, uri, message).await
     }
 
     #[allow(dead_code)]
-    async fn patch<D>(&self, uri: &str, message: Option<reqwest::Body>) -> Result<D>
+    async fn patch<D>(&self, uri: &str, message: Message) -> ClientResult<D>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
-        self.request_entity(http::Method::PATCH, &(self.host.to_string() + uri), message)
-            .await
+        self.request_entity(http::Method::PATCH, uri, message).await
     }
 
     #[allow(dead_code)]
-    async fn put<D>(&self, uri: &str, message: Option<reqwest::Body>) -> Result<D>
+    async fn put<D>(&self, uri: &str, message: Message) -> ClientResult<D>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
-        self.request_entity(http::Method::PUT, &(self.host.to_string() + uri), message)
-            .await
+        self.request_entity(http::Method::PUT, uri, message).await
     }
 
     #[allow(dead_code)]
-    async fn delete<D>(&self, uri: &str, message: Option<reqwest::Body>) -> Result<D>
+    async fn delete<D>(&self, uri: &str, message: Message) -> ClientResult<D>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
-        self.request_entity(
-            http::Method::DELETE,
-            &(self.host.to_string() + uri),
-            message,
-        )
-        .await
+        self.request_entity(http::Method::DELETE, uri, message)
+            .await
     }
 
     /// Return a reference to an interface that provides access to spreadsheets operations.

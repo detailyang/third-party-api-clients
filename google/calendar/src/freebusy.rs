@@ -1,6 +1,5 @@
-use anyhow::Result;
-
 use crate::Client;
+use crate::ClientResult;
 
 pub struct Freebusy {
     pub client: Client,
@@ -13,17 +12,23 @@ impl Freebusy {
     }
 
     /**
-    * This function performs a `POST` to the `/freeBusy` endpoint.
-    *
-    * Returns free/busy information for a set of calendars.
-    */
+     * This function performs a `POST` to the `/freeBusy` endpoint.
+     *
+     * Returns free/busy information for a set of calendars.
+     */
     pub async fn query(
         &self,
         body: &crate::types::FreeBusyRequest,
-    ) -> Result<crate::types::FreeBusyResponse> {
-        let url = "/freeBusy".to_string();
+    ) -> ClientResult<crate::types::FreeBusyResponse> {
+        let url = self.client.url("/freeBusy", None);
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
 }

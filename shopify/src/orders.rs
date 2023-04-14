@@ -1,6 +1,5 @@
-use anyhow::Result;
-
 use crate::Client;
+use crate::ClientResult;
 
 pub struct Orders {
     pub client: Client,
@@ -13,25 +12,25 @@ impl Orders {
     }
 
     /**
-    * Retrieves a count of checkouts from the past 90 days.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-01/checkouts/count.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/abandoned-checkouts#count-2020-01
-    *
-    * **Parameters:**
-    *
-    * * `since_id: &str` -- Restrict results to after the specified ID.
-    * * `created_at_min: &str` -- Count checkouts created after the specified date. (format: 2014-04-25T16:15:47-04:00).
-    * * `created_at_max: &str` -- Count checkouts created before the specified date. (format: 2014-04-25T16:15:47-04:00).
-    * * `updated_at_min: &str` -- Count checkouts last updated after the specified date. (format: 2014-04-25T16:15:47-04:00).
-    * * `updated_at_max: &str` -- Count checkouts last updated before the specified date. (format: 2014-04-25T16:15:47-04:00).
-    * * `status: &str` -- Count checkouts with a given status.
-    *                     (default: open)
-    *                       
-    *                           open: Count only open abandoned checkouts.
-    *                           closed: Count only closed abandoned checkouts.
-    */
+     * Retrieves a count of checkouts from the past 90 days.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-01/checkouts/count.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/abandoned-checkouts#count-2020-01
+     *
+     * **Parameters:**
+     *
+     * * `since_id: &str` -- Restrict results to after the specified ID.
+     * * `created_at_min: &str` -- Count checkouts created after the specified date. (format: 2014-04-25T16:15:47-04:00).
+     * * `created_at_max: &str` -- Count checkouts created before the specified date. (format: 2014-04-25T16:15:47-04:00).
+     * * `updated_at_min: &str` -- Count checkouts last updated after the specified date. (format: 2014-04-25T16:15:47-04:00).
+     * * `updated_at_max: &str` -- Count checkouts last updated before the specified date. (format: 2014-04-25T16:15:47-04:00).
+     * * `status: &str` -- Count checkouts with a given status.
+     *                     (default: open)
+     *                       
+     *                           open: Count only open abandoned checkouts.
+     *                           closed: Count only closed abandoned checkouts.
+     */
     pub async fn deprecated_202001_get_checkouts_count(
         &self,
         since_id: &str,
@@ -40,7 +39,7 @@ impl Orders {
         updated_at_min: &str,
         updated_at_max: &str,
         status: &str,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !created_at_max.is_empty() {
             query_args.push(("created_at_max".to_string(), created_at_max.to_string()));
@@ -61,31 +60,40 @@ impl Orders {
             query_args.push(("updated_at_min".to_string(), updated_at_min.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/admin/api/2020-01/checkouts/count.json?{}", query_);
-
-        self.client.get(&url, None).await
+        let url = self.client.url(
+            &format!("/admin/api/2020-01/checkouts/count.json?{}", query_),
+            None,
+        );
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Retrieves a count of checkouts from the past 90 days.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-04/checkouts/count.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/abandoned-checkouts#count-2020-04
-    *
-    * **Parameters:**
-    *
-    * * `since_id: &str` -- Restrict results to after the specified ID.
-    * * `created_at_min: &str` -- Count checkouts created after the specified date. (format: 2014-04-25T16:15:47-04:00).
-    * * `created_at_max: &str` -- Count checkouts created before the specified date. (format: 2014-04-25T16:15:47-04:00).
-    * * `updated_at_min: &str` -- Count checkouts last updated after the specified date. (format: 2014-04-25T16:15:47-04:00).
-    * * `updated_at_max: &str` -- Count checkouts last updated before the specified date. (format: 2014-04-25T16:15:47-04:00).
-    * * `status: &str` -- Count checkouts with a given status.
-    *                     (default: open)
-    *                       
-    *                           open: Count only open abandoned checkouts.
-    *                           closed: Count only closed abandoned checkouts.
-    */
+     * Retrieves a count of checkouts from the past 90 days.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-04/checkouts/count.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/abandoned-checkouts#count-2020-04
+     *
+     * **Parameters:**
+     *
+     * * `since_id: &str` -- Restrict results to after the specified ID.
+     * * `created_at_min: &str` -- Count checkouts created after the specified date. (format: 2014-04-25T16:15:47-04:00).
+     * * `created_at_max: &str` -- Count checkouts created before the specified date. (format: 2014-04-25T16:15:47-04:00).
+     * * `updated_at_min: &str` -- Count checkouts last updated after the specified date. (format: 2014-04-25T16:15:47-04:00).
+     * * `updated_at_max: &str` -- Count checkouts last updated before the specified date. (format: 2014-04-25T16:15:47-04:00).
+     * * `status: &str` -- Count checkouts with a given status.
+     *                     (default: open)
+     *                       
+     *                           open: Count only open abandoned checkouts.
+     *                           closed: Count only closed abandoned checkouts.
+     */
     pub async fn deprecated_202004_get_checkouts_count(
         &self,
         since_id: &str,
@@ -94,7 +102,7 @@ impl Orders {
         updated_at_min: &str,
         updated_at_max: &str,
         status: &str,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !created_at_max.is_empty() {
             query_args.push(("created_at_max".to_string(), created_at_max.to_string()));
@@ -115,31 +123,40 @@ impl Orders {
             query_args.push(("updated_at_min".to_string(), updated_at_min.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/admin/api/2020-04/checkouts/count.json?{}", query_);
-
-        self.client.get(&url, None).await
+        let url = self.client.url(
+            &format!("/admin/api/2020-04/checkouts/count.json?{}", query_),
+            None,
+        );
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Retrieves a count of checkouts from the past 90 days.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-07/checkouts/count.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/abandoned-checkouts#count-2020-07
-    *
-    * **Parameters:**
-    *
-    * * `since_id: &str` -- Restrict results to after the specified ID.
-    * * `created_at_min: &str` -- Count checkouts created after the specified date. (format: 2014-04-25T16:15:47-04:00).
-    * * `created_at_max: &str` -- Count checkouts created before the specified date. (format: 2014-04-25T16:15:47-04:00).
-    * * `updated_at_min: &str` -- Count checkouts last updated after the specified date. (format: 2014-04-25T16:15:47-04:00).
-    * * `updated_at_max: &str` -- Count checkouts last updated before the specified date. (format: 2014-04-25T16:15:47-04:00).
-    * * `status: &str` -- Count checkouts with a given status.
-    *                     (default: open)
-    *                       
-    *                           open: Count only open abandoned checkouts.
-    *                           closed: Count only closed abandoned checkouts.
-    */
+     * Retrieves a count of checkouts from the past 90 days.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-07/checkouts/count.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/abandoned-checkouts#count-2020-07
+     *
+     * **Parameters:**
+     *
+     * * `since_id: &str` -- Restrict results to after the specified ID.
+     * * `created_at_min: &str` -- Count checkouts created after the specified date. (format: 2014-04-25T16:15:47-04:00).
+     * * `created_at_max: &str` -- Count checkouts created before the specified date. (format: 2014-04-25T16:15:47-04:00).
+     * * `updated_at_min: &str` -- Count checkouts last updated after the specified date. (format: 2014-04-25T16:15:47-04:00).
+     * * `updated_at_max: &str` -- Count checkouts last updated before the specified date. (format: 2014-04-25T16:15:47-04:00).
+     * * `status: &str` -- Count checkouts with a given status.
+     *                     (default: open)
+     *                       
+     *                           open: Count only open abandoned checkouts.
+     *                           closed: Count only closed abandoned checkouts.
+     */
     pub async fn deprecated_202007_get_checkouts_count(
         &self,
         since_id: &str,
@@ -148,7 +165,7 @@ impl Orders {
         updated_at_min: &str,
         updated_at_max: &str,
         status: &str,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !created_at_max.is_empty() {
             query_args.push(("created_at_max".to_string(), created_at_max.to_string()));
@@ -169,31 +186,40 @@ impl Orders {
             query_args.push(("updated_at_min".to_string(), updated_at_min.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/admin/api/2020-07/checkouts/count.json?{}", query_);
-
-        self.client.get(&url, None).await
+        let url = self.client.url(
+            &format!("/admin/api/2020-07/checkouts/count.json?{}", query_),
+            None,
+        );
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Retrieves a count of checkouts from the past 90 days.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-10/checkouts/count.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/abandoned-checkouts#count-2020-10
-    *
-    * **Parameters:**
-    *
-    * * `since_id: &str` -- Restrict results to after the specified ID.
-    * * `created_at_min: &str` -- Count checkouts created after the specified date. (format: 2014-04-25T16:15:47-04:00).
-    * * `created_at_max: &str` -- Count checkouts created before the specified date. (format: 2014-04-25T16:15:47-04:00).
-    * * `updated_at_min: &str` -- Count checkouts last updated after the specified date. (format: 2014-04-25T16:15:47-04:00).
-    * * `updated_at_max: &str` -- Count checkouts last updated before the specified date. (format: 2014-04-25T16:15:47-04:00).
-    * * `status: &str` -- Count checkouts with a given status.
-    *                     (default: open)
-    *                       
-    *                           open: Count only open abandoned checkouts.
-    *                           closed: Count only closed abandoned checkouts.
-    */
+     * Retrieves a count of checkouts from the past 90 days.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-10/checkouts/count.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/abandoned-checkouts#count-2020-10
+     *
+     * **Parameters:**
+     *
+     * * `since_id: &str` -- Restrict results to after the specified ID.
+     * * `created_at_min: &str` -- Count checkouts created after the specified date. (format: 2014-04-25T16:15:47-04:00).
+     * * `created_at_max: &str` -- Count checkouts created before the specified date. (format: 2014-04-25T16:15:47-04:00).
+     * * `updated_at_min: &str` -- Count checkouts last updated after the specified date. (format: 2014-04-25T16:15:47-04:00).
+     * * `updated_at_max: &str` -- Count checkouts last updated before the specified date. (format: 2014-04-25T16:15:47-04:00).
+     * * `status: &str` -- Count checkouts with a given status.
+     *                     (default: open)
+     *                       
+     *                           open: Count only open abandoned checkouts.
+     *                           closed: Count only closed abandoned checkouts.
+     */
     pub async fn get_checkouts_count(
         &self,
         since_id: &str,
@@ -202,7 +228,7 @@ impl Orders {
         updated_at_min: &str,
         updated_at_max: &str,
         status: &str,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !created_at_max.is_empty() {
             query_args.push(("created_at_max".to_string(), created_at_max.to_string()));
@@ -223,31 +249,40 @@ impl Orders {
             query_args.push(("updated_at_min".to_string(), updated_at_min.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/admin/api/2020-10/checkouts/count.json?{}", query_);
-
-        self.client.get(&url, None).await
+        let url = self.client.url(
+            &format!("/admin/api/2020-10/checkouts/count.json?{}", query_),
+            None,
+        );
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Retrieves a count of checkouts from the past 90 days.
-    *
-    * This function performs a `GET` to the `/admin/api/2021-01/checkouts/count.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/abandoned-checkouts#count-2021-01
-    *
-    * **Parameters:**
-    *
-    * * `since_id: &str` -- Restrict results to after the specified ID.
-    * * `created_at_min: &str` -- Count checkouts created after the specified date. (format: 2014-04-25T16:15:47-04:00).
-    * * `created_at_max: &str` -- Count checkouts created before the specified date. (format: 2014-04-25T16:15:47-04:00).
-    * * `updated_at_min: &str` -- Count checkouts last updated after the specified date. (format: 2014-04-25T16:15:47-04:00).
-    * * `updated_at_max: &str` -- Count checkouts last updated before the specified date. (format: 2014-04-25T16:15:47-04:00).
-    * * `status: &str` -- Count checkouts with a given status.
-    *                     (default: open)
-    *                       
-    *                           open: Count only open abandoned checkouts.
-    *                           closed: Count only closed abandoned checkouts.
-    */
+     * Retrieves a count of checkouts from the past 90 days.
+     *
+     * This function performs a `GET` to the `/admin/api/2021-01/checkouts/count.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/abandoned-checkouts#count-2021-01
+     *
+     * **Parameters:**
+     *
+     * * `since_id: &str` -- Restrict results to after the specified ID.
+     * * `created_at_min: &str` -- Count checkouts created after the specified date. (format: 2014-04-25T16:15:47-04:00).
+     * * `created_at_max: &str` -- Count checkouts created before the specified date. (format: 2014-04-25T16:15:47-04:00).
+     * * `updated_at_min: &str` -- Count checkouts last updated after the specified date. (format: 2014-04-25T16:15:47-04:00).
+     * * `updated_at_max: &str` -- Count checkouts last updated before the specified date. (format: 2014-04-25T16:15:47-04:00).
+     * * `status: &str` -- Count checkouts with a given status.
+     *                     (default: open)
+     *                       
+     *                           open: Count only open abandoned checkouts.
+     *                           closed: Count only closed abandoned checkouts.
+     */
     pub async fn deprecated_202101_get_checkouts_count(
         &self,
         since_id: &str,
@@ -256,7 +291,7 @@ impl Orders {
         updated_at_min: &str,
         updated_at_max: &str,
         status: &str,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !created_at_max.is_empty() {
             query_args.push(("created_at_max".to_string(), created_at_max.to_string()));
@@ -277,31 +312,40 @@ impl Orders {
             query_args.push(("updated_at_min".to_string(), updated_at_min.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/admin/api/2021-01/checkouts/count.json?{}", query_);
-
-        self.client.get(&url, None).await
+        let url = self.client.url(
+            &format!("/admin/api/2021-01/checkouts/count.json?{}", query_),
+            None,
+        );
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Retrieves a count of checkouts from the past 90 days.
-    *
-    * This function performs a `GET` to the `/admin/api/unstable/checkouts/count.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/abandoned-checkouts#count-unstable
-    *
-    * **Parameters:**
-    *
-    * * `since_id: &str` -- Restrict results to after the specified ID.
-    * * `created_at_min: &str` -- Count checkouts created after the specified date. (format: 2014-04-25T16:15:47-04:00).
-    * * `created_at_max: &str` -- Count checkouts created before the specified date. (format: 2014-04-25T16:15:47-04:00).
-    * * `updated_at_min: &str` -- Count checkouts last updated after the specified date. (format: 2014-04-25T16:15:47-04:00).
-    * * `updated_at_max: &str` -- Count checkouts last updated before the specified date. (format: 2014-04-25T16:15:47-04:00).
-    * * `status: &str` -- Count checkouts with a given status.
-    *                     (default: open)
-    *                       
-    *                           open: Count only open abandoned checkouts.
-    *                           closed: Count only closed abandoned checkouts.
-    */
+     * Retrieves a count of checkouts from the past 90 days.
+     *
+     * This function performs a `GET` to the `/admin/api/unstable/checkouts/count.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/abandoned-checkouts#count-unstable
+     *
+     * **Parameters:**
+     *
+     * * `since_id: &str` -- Restrict results to after the specified ID.
+     * * `created_at_min: &str` -- Count checkouts created after the specified date. (format: 2014-04-25T16:15:47-04:00).
+     * * `created_at_max: &str` -- Count checkouts created before the specified date. (format: 2014-04-25T16:15:47-04:00).
+     * * `updated_at_min: &str` -- Count checkouts last updated after the specified date. (format: 2014-04-25T16:15:47-04:00).
+     * * `updated_at_max: &str` -- Count checkouts last updated before the specified date. (format: 2014-04-25T16:15:47-04:00).
+     * * `status: &str` -- Count checkouts with a given status.
+     *                     (default: open)
+     *                       
+     *                           open: Count only open abandoned checkouts.
+     *                           closed: Count only closed abandoned checkouts.
+     */
     pub async fn deprecated_unstable_get_checkouts_count(
         &self,
         since_id: &str,
@@ -310,7 +354,7 @@ impl Orders {
         updated_at_min: &str,
         updated_at_max: &str,
         status: &str,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !created_at_max.is_empty() {
             query_args.push(("created_at_max".to_string(), created_at_max.to_string()));
@@ -331,60 +375,69 @@ impl Orders {
             query_args.push(("updated_at_min".to_string(), updated_at_min.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/admin/api/unstable/checkouts/count.json?{}", query_);
-
-        self.client.get(&url, None).await
+        let url = self.client.url(
+            &format!("/admin/api/unstable/checkouts/count.json?{}", query_),
+            None,
+        );
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Retrieves a list of orders. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-01/orders.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order#index-2020-01
-    *
-    * **Parameters:**
-    *
-    * * `ids: &str` -- Retrieve only orders specified by a comma-separated list of order IDs.
-    * * `limit: &str` -- The maximum number of results to show on a page.
-    *                     (default: 50, maximum: 250).
-    * * `since_id: &str` -- Show orders after the specified ID.
-    * * `created_at_min: &str` -- Show orders created at or after date (format: 2014-04-25T16:15:47-04:00).
-    * * `created_at_max: &str` -- Show orders created at or before date (format: 2014-04-25T16:15:47-04:00).
-    * * `updated_at_min: &str` -- Show orders last updated at or after date (format: 2014-04-25T16:15:47-04:00).
-    * * `updated_at_max: &str` -- Show orders last updated at or before date (format: 2014-04-25T16:15:47-04:00).
-    * * `processed_at_min: &str` -- Show orders imported at or after date (format: 2014-04-25T16:15:47-04:00).
-    * * `processed_at_max: &str` -- Show orders imported at or before date (format: 2014-04-25T16:15:47-04:00).
-    * * `attribution_app_id: &str` -- Show orders attributed to a certain app, specified by the app ID. Set as current to show orders for the app currently consuming the API.
-    * * `status: &str` -- Filter orders by their status.
-    *                     (default: open)
-    *                       
-    *                           open: Show only open orders.
-    *                           closed: Show only closed orders.
-    *                           cancelled: Show only canceled orders.
-    *                           any: Show orders of any status, including archived orders.
-    * * `financial_status: &str` -- Filter orders by their financial status.
-    *                     (default: any)
-    *                       
-    *                           authorized: Show only authorized orders
-    *                           pending: Show only pending orders
-    *                           paid: Show only paid orders
-    *                           partially_paid: Show only partially paid orders
-    *                           refunded: Show only refunded orders
-    *                           voided: Show only voided orders
-    *                           partially_refunded: Show only partially refunded orders
-    *                           any: Show orders of any financial status.
-    *                           unpaid: Show authorized and partially paid orders.
-    * * `fulfillment_status: &str` -- Filter orders by their fulfillment status.
-    *                     (default: any)
-    *                       
-    *                           shipped: Show orders that have been shipped. Returns orders with fulfillment_status of fulfilled.
-    *                           partial: Show partially shipped orders.
-    *                           unshipped: Show orders that have not yet been shipped. Returns orders with fulfillment_status of null.
-    *                           any: Show orders of any fulfillment status.
-    *                           unfulfilled: Returns orders with fulfillment_status of null or partial.
-    * * `fields: &str` -- Retrieve only certain fields, specified by a comma-separated list of fields names.
-    */
+     * Retrieves a list of orders. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-01/orders.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order#index-2020-01
+     *
+     * **Parameters:**
+     *
+     * * `ids: &str` -- Retrieve only orders specified by a comma-separated list of order IDs.
+     * * `limit: &str` -- The maximum number of results to show on a page.
+     *                     (default: 50, maximum: 250).
+     * * `since_id: &str` -- Show orders after the specified ID.
+     * * `created_at_min: &str` -- Show orders created at or after date (format: 2014-04-25T16:15:47-04:00).
+     * * `created_at_max: &str` -- Show orders created at or before date (format: 2014-04-25T16:15:47-04:00).
+     * * `updated_at_min: &str` -- Show orders last updated at or after date (format: 2014-04-25T16:15:47-04:00).
+     * * `updated_at_max: &str` -- Show orders last updated at or before date (format: 2014-04-25T16:15:47-04:00).
+     * * `processed_at_min: &str` -- Show orders imported at or after date (format: 2014-04-25T16:15:47-04:00).
+     * * `processed_at_max: &str` -- Show orders imported at or before date (format: 2014-04-25T16:15:47-04:00).
+     * * `attribution_app_id: &str` -- Show orders attributed to a certain app, specified by the app ID. Set as current to show orders for the app currently consuming the API.
+     * * `status: &str` -- Filter orders by their status.
+     *                     (default: open)
+     *                       
+     *                           open: Show only open orders.
+     *                           closed: Show only closed orders.
+     *                           cancelled: Show only canceled orders.
+     *                           any: Show orders of any status, including archived orders.
+     * * `financial_status: &str` -- Filter orders by their financial status.
+     *                     (default: any)
+     *                       
+     *                           authorized: Show only authorized orders
+     *                           pending: Show only pending orders
+     *                           paid: Show only paid orders
+     *                           partially_paid: Show only partially paid orders
+     *                           refunded: Show only refunded orders
+     *                           voided: Show only voided orders
+     *                           partially_refunded: Show only partially refunded orders
+     *                           any: Show orders of any financial status.
+     *                           unpaid: Show authorized and partially paid orders.
+     * * `fulfillment_status: &str` -- Filter orders by their fulfillment status.
+     *                     (default: any)
+     *                       
+     *                           shipped: Show orders that have been shipped. Returns orders with fulfillment_status of fulfilled.
+     *                           partial: Show partially shipped orders.
+     *                           unshipped: Show orders that have not yet been shipped. Returns orders with fulfillment_status of null.
+     *                           any: Show orders of any fulfillment status.
+     *                           unfulfilled: Returns orders with fulfillment_status of null or partial.
+     * * `fields: &str` -- Retrieve only certain fields, specified by a comma-separated list of fields names.
+     */
     pub async fn deprecated_202001_get(
         &self,
         ids: &str,
@@ -401,7 +454,7 @@ impl Orders {
         financial_status: &str,
         fulfillment_status: &str,
         fields: &str,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !attribution_app_id.is_empty() {
             query_args.push((
@@ -452,11 +505,19 @@ impl Orders {
             query_args.push(("updated_at_min".to_string(), updated_at_min.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/admin/api/2020-01/orders.json?{}", query_);
-
-        self.client.get(&url, None).await
+        let url = self
+            .client
+            .url(&format!("/admin/api/2020-01/orders.json?{}", query_), None);
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
     * Creates an order. By default, product inventory is not claimed.
               When you create an order, you can include the following option parameters in the body of the request:
@@ -487,123 +548,157 @@ impl Orders {
     *
     * https://shopify.dev/docs/admin-api/rest/reference/orders/order#create-2020-01
     */
-    pub async fn deprecated_202001_create(&self, body: &serde_json::Value) -> Result<()> {
-        let url = "/admin/api/2020-01/orders.json".to_string();
+    pub async fn deprecated_202001_create(&self, body: &serde_json::Value) -> ClientResult<()> {
+        let url = self.client.url("/admin/api/2020-01/orders.json", None);
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * Retrieves a specific order.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-01/orders/{order_id}.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order#show-2020-01
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    * * `fields: &str` -- Retrieve only certain fields, specified by a comma-separated list of fields names.
-    */
-    pub async fn deprecated_202001_get_param(&self, order_id: &str, fields: &str) -> Result<()> {
+     * Retrieves a specific order.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-01/orders/{order_id}.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order#show-2020-01
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     * * `fields: &str` -- Retrieve only certain fields, specified by a comma-separated list of fields names.
+     */
+    pub async fn deprecated_202001_get_param(
+        &self,
+        order_id: &str,
+        fields: &str,
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !fields.is_empty() {
             query_args.push(("fields".to_string(), fields.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/2020-01/orders/{}/json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-01/orders/{}/json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                query_
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Updates an order.
-    *
-    * This function performs a `PUT` to the `/admin/api/2020-01/orders/{order_id}.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order#update-2020-01
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    */
+     * Updates an order.
+     *
+     * This function performs a `PUT` to the `/admin/api/2020-01/orders/{order_id}.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order#update-2020-01
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     */
     pub async fn deprecated_202001_update_param(
         &self,
         order_id: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-01/orders/{}/json",
-            crate::progenitor_support::encode_path(order_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-01/orders/{}/json",
+                crate::progenitor_support::encode_path(order_id),
+            ),
+            None,
         );
-
         self.client
-            .put(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .put(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * Deletes an order. Orders that interact with an online gateway can't be deleted.
-    *
-    * This function performs a `DELETE` to the `/admin/api/2020-01/orders/{order_id}.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order#destroy-2020-01
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    */
-    pub async fn deprecated_202001_delete_param(&self, order_id: &str) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-01/orders/{}/json",
-            crate::progenitor_support::encode_path(order_id),
+     * Deletes an order. Orders that interact with an online gateway can't be deleted.
+     *
+     * This function performs a `DELETE` to the `/admin/api/2020-01/orders/{order_id}.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order#destroy-2020-01
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     */
+    pub async fn deprecated_202001_delete_param(&self, order_id: &str) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-01/orders/{}/json",
+                crate::progenitor_support::encode_path(order_id),
+            ),
+            None,
         );
-
-        self.client.delete(&url, None).await
+        self.client
+            .delete(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Retrieves an order count.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-01/orders/count.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order#count-2020-01
-    *
-    * **Parameters:**
-    *
-    * * `created_at_min: &str` -- Count orders created after date (format: 2014-04-25T16:15:47-04:00).
-    * * `created_at_max: &str` -- Count orders created before date (format: 2014-04-25T16:15:47-04:00).
-    * * `updated_at_min: &str` -- Count orders last updated after date (format: 2014-04-25T16:15:47-04:00).
-    * * `updated_at_max: &str` -- Count orders last updated before date (format: 2014-04-25T16:15:47-04:00).
-    * * `status: &str` -- Count orders of a given status.
-    *                     (default: open)
-    *                       
-    *                           open: Count open orders.
-    *                           closed: Count closed orders.
-    *                           any: Count orders of any status.
-    * * `financial_status: &str` -- Count orders of a given financial status.
-    *                     (default: any)
-    *                       
-    *                           authorized: Count authorized orders.
-    *                           pending: Count pending orders.
-    *                           paid: Count paid orders.
-    *                           refunded: Count refunded orders.
-    *                           voided: Count voided orders.
-    *                           any: Count orders of any financial status.
-    * * `fulfillment_status: &str` -- Filter orders by their fulfillment status.
-    *                     (default: any)
-    *                       
-    *                           shipped: Show orders that have been shipped. Returns orders with fulfillment_status of fulfilled.
-    *                           partial: Show partially shipped orders.
-    *                           unshipped: Show orders that have not yet been shipped. Returns orders with fulfillment_status of null.
-    *                           any: Show orders of any fulfillment status.
-    *                           unfulfilled: Returns orders with fulfillment_status of null or partial.
-    */
+     * Retrieves an order count.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-01/orders/count.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order#count-2020-01
+     *
+     * **Parameters:**
+     *
+     * * `created_at_min: &str` -- Count orders created after date (format: 2014-04-25T16:15:47-04:00).
+     * * `created_at_max: &str` -- Count orders created before date (format: 2014-04-25T16:15:47-04:00).
+     * * `updated_at_min: &str` -- Count orders last updated after date (format: 2014-04-25T16:15:47-04:00).
+     * * `updated_at_max: &str` -- Count orders last updated before date (format: 2014-04-25T16:15:47-04:00).
+     * * `status: &str` -- Count orders of a given status.
+     *                     (default: open)
+     *                       
+     *                           open: Count open orders.
+     *                           closed: Count closed orders.
+     *                           any: Count orders of any status.
+     * * `financial_status: &str` -- Count orders of a given financial status.
+     *                     (default: any)
+     *                       
+     *                           authorized: Count authorized orders.
+     *                           pending: Count pending orders.
+     *                           paid: Count paid orders.
+     *                           refunded: Count refunded orders.
+     *                           voided: Count voided orders.
+     *                           any: Count orders of any financial status.
+     * * `fulfillment_status: &str` -- Filter orders by their fulfillment status.
+     *                     (default: any)
+     *                       
+     *                           shipped: Show orders that have been shipped. Returns orders with fulfillment_status of fulfilled.
+     *                           partial: Show partially shipped orders.
+     *                           unshipped: Show orders that have not yet been shipped. Returns orders with fulfillment_status of null.
+     *                           any: Show orders of any fulfillment status.
+     *                           unfulfilled: Returns orders with fulfillment_status of null or partial.
+     */
     pub async fn deprecated_202001_get_count(
         &self,
         created_at_min: &str,
@@ -613,7 +708,7 @@ impl Orders {
         status: &str,
         financial_status: &str,
         fulfillment_status: &str,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !created_at_max.is_empty() {
             query_args.push(("created_at_max".to_string(), created_at_max.to_string()));
@@ -640,63 +735,86 @@ impl Orders {
             query_args.push(("updated_at_min".to_string(), updated_at_min.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/admin/api/2020-01/orders/count.json?{}", query_);
-
-        self.client.get(&url, None).await
+        let url = self.client.url(
+            &format!("/admin/api/2020-01/orders/count.json?{}", query_),
+            None,
+        );
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Closes an order.
-    *
-    * This function performs a `POST` to the `/admin/api/2020-01/orders/{order_id}/close.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order#close-2020-01
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    */
+     * Closes an order.
+     *
+     * This function performs a `POST` to the `/admin/api/2020-01/orders/{order_id}/close.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order#close-2020-01
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     */
     pub async fn deprecated_202001_create_param_close(
         &self,
         order_id: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-01/orders/{}/close.json",
-            crate::progenitor_support::encode_path(order_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-01/orders/{}/close.json",
+                crate::progenitor_support::encode_path(order_id),
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * Re-opens a closed order.
-    *
-    * This function performs a `POST` to the `/admin/api/2020-01/orders/{order_id}/open.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order#open-2020-01
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    */
+     * Re-opens a closed order.
+     *
+     * This function performs a `POST` to the `/admin/api/2020-01/orders/{order_id}/open.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order#open-2020-01
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     */
     pub async fn deprecated_202001_create_param_open(
         &self,
         order_id: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-01/orders/{}/open.json",
-            crate::progenitor_support::encode_path(order_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-01/orders/{}/open.json",
+                crate::progenitor_support::encode_path(order_id),
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
     * Caution
       For multi-currency orders, the currency property is required whenever the amount property is provided. For more information, see Migrating to support multiple currencies.
@@ -730,7 +848,7 @@ impl Orders {
         email: &str,
         refund: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !amount.is_empty() {
             query_args.push(("amount".to_string(), amount.to_string()));
@@ -756,66 +874,73 @@ impl Orders {
             ));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/2020-01/orders/{}/cancel.json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-01/orders/{}/cancel.json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                query_
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * Retrieves a list of orders. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-04/orders.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order#index-2020-04
-    *
-    * **Parameters:**
-    *
-    * * `ids: &str` -- Retrieve only orders specified by a comma-separated list of order IDs.
-    * * `limit: &str` -- The maximum number of results to show on a page.
-    *                     (default: 50, maximum: 250).
-    * * `since_id: &str` -- Show orders after the specified ID.
-    * * `created_at_min: &str` -- Show orders created at or after date (format: 2014-04-25T16:15:47-04:00).
-    * * `created_at_max: &str` -- Show orders created at or before date (format: 2014-04-25T16:15:47-04:00).
-    * * `updated_at_min: &str` -- Show orders last updated at or after date (format: 2014-04-25T16:15:47-04:00).
-    * * `updated_at_max: &str` -- Show orders last updated at or before date (format: 2014-04-25T16:15:47-04:00).
-    * * `processed_at_min: &str` -- Show orders imported at or after date (format: 2014-04-25T16:15:47-04:00).
-    * * `processed_at_max: &str` -- Show orders imported at or before date (format: 2014-04-25T16:15:47-04:00).
-    * * `attribution_app_id: &str` -- Show orders attributed to a certain app, specified by the app ID. Set as current to show orders for the app currently consuming the API.
-    * * `status: &str` -- Filter orders by their status.
-    *                     (default: open)
-    *                       
-    *                           open: Show only open orders.
-    *                           closed: Show only closed orders.
-    *                           cancelled: Show only canceled orders.
-    *                           any: Show orders of any status, including archived orders.
-    * * `financial_status: &str` -- Filter orders by their financial status.
-    *                     (default: any)
-    *                       
-    *                           authorized: Show only authorized orders
-    *                           pending: Show only pending orders
-    *                           paid: Show only paid orders
-    *                           partially_paid: Show only partially paid orders
-    *                           refunded: Show only refunded orders
-    *                           voided: Show only voided orders
-    *                           partially_refunded: Show only partially refunded orders
-    *                           any: Show orders of any financial status.
-    *                           unpaid: Show authorized and partially paid orders.
-    * * `fulfillment_status: &str` -- Filter orders by their fulfillment status.
-    *                     (default: any)
-    *                       
-    *                           shipped: Show orders that have been shipped. Returns orders with fulfillment_status of fulfilled.
-    *                           partial: Show partially shipped orders.
-    *                           unshipped: Show orders that have not yet been shipped. Returns orders with fulfillment_status of null.
-    *                           any: Show orders of any fulfillment status.
-    *                           unfulfilled: Returns orders with fulfillment_status of null or partial.
-    * * `fields: &str` -- Retrieve only certain fields, specified by a comma-separated list of fields names.
-    */
+     * Retrieves a list of orders. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-04/orders.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order#index-2020-04
+     *
+     * **Parameters:**
+     *
+     * * `ids: &str` -- Retrieve only orders specified by a comma-separated list of order IDs.
+     * * `limit: &str` -- The maximum number of results to show on a page.
+     *                     (default: 50, maximum: 250).
+     * * `since_id: &str` -- Show orders after the specified ID.
+     * * `created_at_min: &str` -- Show orders created at or after date (format: 2014-04-25T16:15:47-04:00).
+     * * `created_at_max: &str` -- Show orders created at or before date (format: 2014-04-25T16:15:47-04:00).
+     * * `updated_at_min: &str` -- Show orders last updated at or after date (format: 2014-04-25T16:15:47-04:00).
+     * * `updated_at_max: &str` -- Show orders last updated at or before date (format: 2014-04-25T16:15:47-04:00).
+     * * `processed_at_min: &str` -- Show orders imported at or after date (format: 2014-04-25T16:15:47-04:00).
+     * * `processed_at_max: &str` -- Show orders imported at or before date (format: 2014-04-25T16:15:47-04:00).
+     * * `attribution_app_id: &str` -- Show orders attributed to a certain app, specified by the app ID. Set as current to show orders for the app currently consuming the API.
+     * * `status: &str` -- Filter orders by their status.
+     *                     (default: open)
+     *                       
+     *                           open: Show only open orders.
+     *                           closed: Show only closed orders.
+     *                           cancelled: Show only canceled orders.
+     *                           any: Show orders of any status, including archived orders.
+     * * `financial_status: &str` -- Filter orders by their financial status.
+     *                     (default: any)
+     *                       
+     *                           authorized: Show only authorized orders
+     *                           pending: Show only pending orders
+     *                           paid: Show only paid orders
+     *                           partially_paid: Show only partially paid orders
+     *                           refunded: Show only refunded orders
+     *                           voided: Show only voided orders
+     *                           partially_refunded: Show only partially refunded orders
+     *                           any: Show orders of any financial status.
+     *                           unpaid: Show authorized and partially paid orders.
+     * * `fulfillment_status: &str` -- Filter orders by their fulfillment status.
+     *                     (default: any)
+     *                       
+     *                           shipped: Show orders that have been shipped. Returns orders with fulfillment_status of fulfilled.
+     *                           partial: Show partially shipped orders.
+     *                           unshipped: Show orders that have not yet been shipped. Returns orders with fulfillment_status of null.
+     *                           any: Show orders of any fulfillment status.
+     *                           unfulfilled: Returns orders with fulfillment_status of null or partial.
+     * * `fields: &str` -- Retrieve only certain fields, specified by a comma-separated list of fields names.
+     */
     pub async fn deprecated_202004_get(
         &self,
         ids: &str,
@@ -832,7 +957,7 @@ impl Orders {
         financial_status: &str,
         fulfillment_status: &str,
         fields: &str,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !attribution_app_id.is_empty() {
             query_args.push((
@@ -883,11 +1008,19 @@ impl Orders {
             query_args.push(("updated_at_min".to_string(), updated_at_min.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/admin/api/2020-04/orders.json?{}", query_);
-
-        self.client.get(&url, None).await
+        let url = self
+            .client
+            .url(&format!("/admin/api/2020-04/orders.json?{}", query_), None);
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
     * Creates an order. By default, product inventory is not claimed.
               When you create an order, you can include the following option parameters in the body of the request:
@@ -918,123 +1051,157 @@ impl Orders {
     *
     * https://shopify.dev/docs/admin-api/rest/reference/orders/order#create-2020-04
     */
-    pub async fn deprecated_202004_create(&self, body: &serde_json::Value) -> Result<()> {
-        let url = "/admin/api/2020-04/orders.json".to_string();
+    pub async fn deprecated_202004_create(&self, body: &serde_json::Value) -> ClientResult<()> {
+        let url = self.client.url("/admin/api/2020-04/orders.json", None);
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * Retrieves a specific order.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-04/orders/{order_id}.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order#show-2020-04
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    * * `fields: &str` -- Retrieve only certain fields, specified by a comma-separated list of fields names.
-    */
-    pub async fn deprecated_202004_get_param(&self, order_id: &str, fields: &str) -> Result<()> {
+     * Retrieves a specific order.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-04/orders/{order_id}.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order#show-2020-04
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     * * `fields: &str` -- Retrieve only certain fields, specified by a comma-separated list of fields names.
+     */
+    pub async fn deprecated_202004_get_param(
+        &self,
+        order_id: &str,
+        fields: &str,
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !fields.is_empty() {
             query_args.push(("fields".to_string(), fields.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/2020-04/orders/{}/json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-04/orders/{}/json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                query_
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Updates an order.
-    *
-    * This function performs a `PUT` to the `/admin/api/2020-04/orders/{order_id}.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order#update-2020-04
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    */
+     * Updates an order.
+     *
+     * This function performs a `PUT` to the `/admin/api/2020-04/orders/{order_id}.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order#update-2020-04
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     */
     pub async fn deprecated_202004_update_param(
         &self,
         order_id: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-04/orders/{}/json",
-            crate::progenitor_support::encode_path(order_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-04/orders/{}/json",
+                crate::progenitor_support::encode_path(order_id),
+            ),
+            None,
         );
-
         self.client
-            .put(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .put(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * Deletes an order. Orders that interact with an online gateway can't be deleted.
-    *
-    * This function performs a `DELETE` to the `/admin/api/2020-04/orders/{order_id}.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order#destroy-2020-04
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    */
-    pub async fn deprecated_202004_delete_param(&self, order_id: &str) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-04/orders/{}/json",
-            crate::progenitor_support::encode_path(order_id),
+     * Deletes an order. Orders that interact with an online gateway can't be deleted.
+     *
+     * This function performs a `DELETE` to the `/admin/api/2020-04/orders/{order_id}.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order#destroy-2020-04
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     */
+    pub async fn deprecated_202004_delete_param(&self, order_id: &str) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-04/orders/{}/json",
+                crate::progenitor_support::encode_path(order_id),
+            ),
+            None,
         );
-
-        self.client.delete(&url, None).await
+        self.client
+            .delete(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Retrieves an order count.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-04/orders/count.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order#count-2020-04
-    *
-    * **Parameters:**
-    *
-    * * `created_at_min: &str` -- Count orders created after date (format: 2014-04-25T16:15:47-04:00).
-    * * `created_at_max: &str` -- Count orders created before date (format: 2014-04-25T16:15:47-04:00).
-    * * `updated_at_min: &str` -- Count orders last updated after date (format: 2014-04-25T16:15:47-04:00).
-    * * `updated_at_max: &str` -- Count orders last updated before date (format: 2014-04-25T16:15:47-04:00).
-    * * `status: &str` -- Count orders of a given status.
-    *                     (default: open)
-    *                       
-    *                           open: Count open orders.
-    *                           closed: Count closed orders.
-    *                           any: Count orders of any status.
-    * * `financial_status: &str` -- Count orders of a given financial status.
-    *                     (default: any)
-    *                       
-    *                           authorized: Count authorized orders.
-    *                           pending: Count pending orders.
-    *                           paid: Count paid orders.
-    *                           refunded: Count refunded orders.
-    *                           voided: Count voided orders.
-    *                           any: Count orders of any financial status.
-    * * `fulfillment_status: &str` -- Filter orders by their fulfillment status.
-    *                     (default: any)
-    *                       
-    *                           shipped: Show orders that have been shipped. Returns orders with fulfillment_status of fulfilled.
-    *                           partial: Show partially shipped orders.
-    *                           unshipped: Show orders that have not yet been shipped. Returns orders with fulfillment_status of null.
-    *                           any: Show orders of any fulfillment status.
-    *                           unfulfilled: Returns orders with fulfillment_status of null or partial.
-    */
+     * Retrieves an order count.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-04/orders/count.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order#count-2020-04
+     *
+     * **Parameters:**
+     *
+     * * `created_at_min: &str` -- Count orders created after date (format: 2014-04-25T16:15:47-04:00).
+     * * `created_at_max: &str` -- Count orders created before date (format: 2014-04-25T16:15:47-04:00).
+     * * `updated_at_min: &str` -- Count orders last updated after date (format: 2014-04-25T16:15:47-04:00).
+     * * `updated_at_max: &str` -- Count orders last updated before date (format: 2014-04-25T16:15:47-04:00).
+     * * `status: &str` -- Count orders of a given status.
+     *                     (default: open)
+     *                       
+     *                           open: Count open orders.
+     *                           closed: Count closed orders.
+     *                           any: Count orders of any status.
+     * * `financial_status: &str` -- Count orders of a given financial status.
+     *                     (default: any)
+     *                       
+     *                           authorized: Count authorized orders.
+     *                           pending: Count pending orders.
+     *                           paid: Count paid orders.
+     *                           refunded: Count refunded orders.
+     *                           voided: Count voided orders.
+     *                           any: Count orders of any financial status.
+     * * `fulfillment_status: &str` -- Filter orders by their fulfillment status.
+     *                     (default: any)
+     *                       
+     *                           shipped: Show orders that have been shipped. Returns orders with fulfillment_status of fulfilled.
+     *                           partial: Show partially shipped orders.
+     *                           unshipped: Show orders that have not yet been shipped. Returns orders with fulfillment_status of null.
+     *                           any: Show orders of any fulfillment status.
+     *                           unfulfilled: Returns orders with fulfillment_status of null or partial.
+     */
     pub async fn deprecated_202004_get_count(
         &self,
         created_at_min: &str,
@@ -1044,7 +1211,7 @@ impl Orders {
         status: &str,
         financial_status: &str,
         fulfillment_status: &str,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !created_at_max.is_empty() {
             query_args.push(("created_at_max".to_string(), created_at_max.to_string()));
@@ -1071,63 +1238,86 @@ impl Orders {
             query_args.push(("updated_at_min".to_string(), updated_at_min.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/admin/api/2020-04/orders/count.json?{}", query_);
-
-        self.client.get(&url, None).await
+        let url = self.client.url(
+            &format!("/admin/api/2020-04/orders/count.json?{}", query_),
+            None,
+        );
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Closes an order.
-    *
-    * This function performs a `POST` to the `/admin/api/2020-04/orders/{order_id}/close.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order#close-2020-04
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    */
+     * Closes an order.
+     *
+     * This function performs a `POST` to the `/admin/api/2020-04/orders/{order_id}/close.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order#close-2020-04
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     */
     pub async fn deprecated_202004_create_param_close(
         &self,
         order_id: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-04/orders/{}/close.json",
-            crate::progenitor_support::encode_path(order_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-04/orders/{}/close.json",
+                crate::progenitor_support::encode_path(order_id),
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * Re-opens a closed order.
-    *
-    * This function performs a `POST` to the `/admin/api/2020-04/orders/{order_id}/open.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order#open-2020-04
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    */
+     * Re-opens a closed order.
+     *
+     * This function performs a `POST` to the `/admin/api/2020-04/orders/{order_id}/open.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order#open-2020-04
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     */
     pub async fn deprecated_202004_create_param_open(
         &self,
         order_id: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-04/orders/{}/open.json",
-            crate::progenitor_support::encode_path(order_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-04/orders/{}/open.json",
+                crate::progenitor_support::encode_path(order_id),
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
     * Caution
       For multi-currency orders, the currency property is required whenever the amount property is provided. For more information, see Migrating to support multiple currencies.
@@ -1161,7 +1351,7 @@ impl Orders {
         email: &str,
         refund: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !amount.is_empty() {
             query_args.push(("amount".to_string(), amount.to_string()));
@@ -1187,66 +1377,73 @@ impl Orders {
             ));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/2020-04/orders/{}/cancel.json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-04/orders/{}/cancel.json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                query_
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * Retrieves a list of orders. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-07/orders.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order#index-2020-07
-    *
-    * **Parameters:**
-    *
-    * * `ids: &str` -- Retrieve only orders specified by a comma-separated list of order IDs.
-    * * `limit: &str` -- The maximum number of results to show on a page.
-    *                     (default: 50, maximum: 250).
-    * * `since_id: &str` -- Show orders after the specified ID.
-    * * `created_at_min: &str` -- Show orders created at or after date (format: 2014-04-25T16:15:47-04:00).
-    * * `created_at_max: &str` -- Show orders created at or before date (format: 2014-04-25T16:15:47-04:00).
-    * * `updated_at_min: &str` -- Show orders last updated at or after date (format: 2014-04-25T16:15:47-04:00).
-    * * `updated_at_max: &str` -- Show orders last updated at or before date (format: 2014-04-25T16:15:47-04:00).
-    * * `processed_at_min: &str` -- Show orders imported at or after date (format: 2014-04-25T16:15:47-04:00).
-    * * `processed_at_max: &str` -- Show orders imported at or before date (format: 2014-04-25T16:15:47-04:00).
-    * * `attribution_app_id: &str` -- Show orders attributed to a certain app, specified by the app ID. Set as current to show orders for the app currently consuming the API.
-    * * `status: &str` -- Filter orders by their status.
-    *                     (default: open)
-    *                       
-    *                           open: Show only open orders.
-    *                           closed: Show only closed orders.
-    *                           cancelled: Show only canceled orders.
-    *                           any: Show orders of any status, including archived orders.
-    * * `financial_status: &str` -- Filter orders by their financial status.
-    *                     (default: any)
-    *                       
-    *                           authorized: Show only authorized orders
-    *                           pending: Show only pending orders
-    *                           paid: Show only paid orders
-    *                           partially_paid: Show only partially paid orders
-    *                           refunded: Show only refunded orders
-    *                           voided: Show only voided orders
-    *                           partially_refunded: Show only partially refunded orders
-    *                           any: Show orders of any financial status.
-    *                           unpaid: Show authorized and partially paid orders.
-    * * `fulfillment_status: &str` -- Filter orders by their fulfillment status.
-    *                     (default: any)
-    *                       
-    *                           shipped: Show orders that have been shipped. Returns orders with fulfillment_status of fulfilled.
-    *                           partial: Show partially shipped orders.
-    *                           unshipped: Show orders that have not yet been shipped. Returns orders with fulfillment_status of null.
-    *                           any: Show orders of any fulfillment status.
-    *                           unfulfilled: Returns orders with fulfillment_status of null or partial.
-    * * `fields: &str` -- Retrieve only certain fields, specified by a comma-separated list of fields names.
-    */
+     * Retrieves a list of orders. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-07/orders.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order#index-2020-07
+     *
+     * **Parameters:**
+     *
+     * * `ids: &str` -- Retrieve only orders specified by a comma-separated list of order IDs.
+     * * `limit: &str` -- The maximum number of results to show on a page.
+     *                     (default: 50, maximum: 250).
+     * * `since_id: &str` -- Show orders after the specified ID.
+     * * `created_at_min: &str` -- Show orders created at or after date (format: 2014-04-25T16:15:47-04:00).
+     * * `created_at_max: &str` -- Show orders created at or before date (format: 2014-04-25T16:15:47-04:00).
+     * * `updated_at_min: &str` -- Show orders last updated at or after date (format: 2014-04-25T16:15:47-04:00).
+     * * `updated_at_max: &str` -- Show orders last updated at or before date (format: 2014-04-25T16:15:47-04:00).
+     * * `processed_at_min: &str` -- Show orders imported at or after date (format: 2014-04-25T16:15:47-04:00).
+     * * `processed_at_max: &str` -- Show orders imported at or before date (format: 2014-04-25T16:15:47-04:00).
+     * * `attribution_app_id: &str` -- Show orders attributed to a certain app, specified by the app ID. Set as current to show orders for the app currently consuming the API.
+     * * `status: &str` -- Filter orders by their status.
+     *                     (default: open)
+     *                       
+     *                           open: Show only open orders.
+     *                           closed: Show only closed orders.
+     *                           cancelled: Show only canceled orders.
+     *                           any: Show orders of any status, including archived orders.
+     * * `financial_status: &str` -- Filter orders by their financial status.
+     *                     (default: any)
+     *                       
+     *                           authorized: Show only authorized orders
+     *                           pending: Show only pending orders
+     *                           paid: Show only paid orders
+     *                           partially_paid: Show only partially paid orders
+     *                           refunded: Show only refunded orders
+     *                           voided: Show only voided orders
+     *                           partially_refunded: Show only partially refunded orders
+     *                           any: Show orders of any financial status.
+     *                           unpaid: Show authorized and partially paid orders.
+     * * `fulfillment_status: &str` -- Filter orders by their fulfillment status.
+     *                     (default: any)
+     *                       
+     *                           shipped: Show orders that have been shipped. Returns orders with fulfillment_status of fulfilled.
+     *                           partial: Show partially shipped orders.
+     *                           unshipped: Show orders that have not yet been shipped. Returns orders with fulfillment_status of null.
+     *                           any: Show orders of any fulfillment status.
+     *                           unfulfilled: Returns orders with fulfillment_status of null or partial.
+     * * `fields: &str` -- Retrieve only certain fields, specified by a comma-separated list of fields names.
+     */
     pub async fn deprecated_202007_get(
         &self,
         ids: &str,
@@ -1263,7 +1460,7 @@ impl Orders {
         financial_status: &str,
         fulfillment_status: &str,
         fields: &str,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !attribution_app_id.is_empty() {
             query_args.push((
@@ -1314,83 +1511,116 @@ impl Orders {
             query_args.push(("updated_at_min".to_string(), updated_at_min.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/admin/api/2020-07/orders.json?{}", query_);
-
-        self.client.get(&url, None).await
+        let url = self
+            .client
+            .url(&format!("/admin/api/2020-07/orders.json?{}", query_), None);
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Retrieves a list of all order risks for an order. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-01/orders/{order_id}/risks.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#index-2020-01
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    */
-    pub async fn deprecated_202001_get_param_risk(&self, order_id: &str) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-01/orders/{}/risks.json",
-            crate::progenitor_support::encode_path(order_id),
+     * Retrieves a list of all order risks for an order. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-01/orders/{order_id}/risks.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#index-2020-01
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     */
+    pub async fn deprecated_202001_get_param_risk(&self, order_id: &str) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-01/orders/{}/risks.json",
+                crate::progenitor_support::encode_path(order_id),
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Creates an order risk for an order.
-    *
-    * This function performs a `POST` to the `/admin/api/2020-01/orders/{order_id}/risks.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#create-2020-01
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    */
+     * Creates an order risk for an order.
+     *
+     * This function performs a `POST` to the `/admin/api/2020-01/orders/{order_id}/risks.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#create-2020-01
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     */
     pub async fn deprecated_202001_create_param_risks(
         &self,
         order_id: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-01/orders/{}/risks.json",
-            crate::progenitor_support::encode_path(order_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-01/orders/{}/risks.json",
+                crate::progenitor_support::encode_path(order_id),
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * Retrieves a single order risk by its ID.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-01/orders/{order_id}/risks/{risk_id}.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#show-2020-01
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    * * `risk_id: &str` -- storefront_access_token_id.
-    */
+     * Retrieves a single order risk by its ID.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-01/orders/{order_id}/risks/{risk_id}.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#show-2020-01
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     * * `risk_id: &str` -- storefront_access_token_id.
+     */
     pub async fn deprecated_202001_get_param_risks_risk(
         &self,
         order_id: &str,
         risk_id: &str,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-01/orders/{}/risks/{}/json",
-            crate::progenitor_support::encode_path(order_id),
-            crate::progenitor_support::encode_path(risk_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-01/orders/{}/risks/{}/json",
+                crate::progenitor_support::encode_path(order_id),
+                crate::progenitor_support::encode_path(risk_id),
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
     * Updates an order risk
 
@@ -1412,18 +1642,25 @@ impl Orders {
         order_id: &str,
         risk_id: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-01/orders/{}/risks/{}/json",
-            crate::progenitor_support::encode_path(order_id),
-            crate::progenitor_support::encode_path(risk_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-01/orders/{}/risks/{}/json",
+                crate::progenitor_support::encode_path(order_id),
+                crate::progenitor_support::encode_path(risk_id),
+            ),
+            None,
         );
-
         self.client
-            .put(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .put(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
     * Deletes an order risk for an order
 
@@ -1444,88 +1681,122 @@ impl Orders {
         &self,
         order_id: &str,
         risk_id: &str,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-01/orders/{}/risks/{}/json",
-            crate::progenitor_support::encode_path(order_id),
-            crate::progenitor_support::encode_path(risk_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-01/orders/{}/risks/{}/json",
+                crate::progenitor_support::encode_path(order_id),
+                crate::progenitor_support::encode_path(risk_id),
+            ),
+            None,
         );
-
-        self.client.delete(&url, None).await
+        self.client
+            .delete(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Retrieves a list of all order risks for an order. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-04/orders/{order_id}/risks.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#index-2020-04
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    */
-    pub async fn deprecated_202004_get_param_risk(&self, order_id: &str) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-04/orders/{}/risks.json",
-            crate::progenitor_support::encode_path(order_id),
+     * Retrieves a list of all order risks for an order. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-04/orders/{order_id}/risks.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#index-2020-04
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     */
+    pub async fn deprecated_202004_get_param_risk(&self, order_id: &str) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-04/orders/{}/risks.json",
+                crate::progenitor_support::encode_path(order_id),
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Creates an order risk for an order.
-    *
-    * This function performs a `POST` to the `/admin/api/2020-04/orders/{order_id}/risks.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#create-2020-04
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    */
+     * Creates an order risk for an order.
+     *
+     * This function performs a `POST` to the `/admin/api/2020-04/orders/{order_id}/risks.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#create-2020-04
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     */
     pub async fn deprecated_202004_create_param_risks(
         &self,
         order_id: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-04/orders/{}/risks.json",
-            crate::progenitor_support::encode_path(order_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-04/orders/{}/risks.json",
+                crate::progenitor_support::encode_path(order_id),
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * Retrieves a single order risk by its ID.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-04/orders/{order_id}/risks/{risk_id}.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#show-2020-04
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    * * `risk_id: &str` -- storefront_access_token_id.
-    */
+     * Retrieves a single order risk by its ID.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-04/orders/{order_id}/risks/{risk_id}.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#show-2020-04
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     * * `risk_id: &str` -- storefront_access_token_id.
+     */
     pub async fn deprecated_202004_get_param_risks_risk(
         &self,
         order_id: &str,
         risk_id: &str,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-04/orders/{}/risks/{}/json",
-            crate::progenitor_support::encode_path(order_id),
-            crate::progenitor_support::encode_path(risk_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-04/orders/{}/risks/{}/json",
+                crate::progenitor_support::encode_path(order_id),
+                crate::progenitor_support::encode_path(risk_id),
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
     * Updates an order risk
 
@@ -1547,18 +1818,25 @@ impl Orders {
         order_id: &str,
         risk_id: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-04/orders/{}/risks/{}/json",
-            crate::progenitor_support::encode_path(order_id),
-            crate::progenitor_support::encode_path(risk_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-04/orders/{}/risks/{}/json",
+                crate::progenitor_support::encode_path(order_id),
+                crate::progenitor_support::encode_path(risk_id),
+            ),
+            None,
         );
-
         self.client
-            .put(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .put(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
     * Deletes an order risk for an order
 
@@ -1579,88 +1857,122 @@ impl Orders {
         &self,
         order_id: &str,
         risk_id: &str,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-04/orders/{}/risks/{}/json",
-            crate::progenitor_support::encode_path(order_id),
-            crate::progenitor_support::encode_path(risk_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-04/orders/{}/risks/{}/json",
+                crate::progenitor_support::encode_path(order_id),
+                crate::progenitor_support::encode_path(risk_id),
+            ),
+            None,
         );
-
-        self.client.delete(&url, None).await
+        self.client
+            .delete(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Retrieves a list of all order risks for an order. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-07/orders/{order_id}/risks.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#index-2020-07
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    */
-    pub async fn deprecated_202007_get_param_risk(&self, order_id: &str) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-07/orders/{}/risks.json",
-            crate::progenitor_support::encode_path(order_id),
+     * Retrieves a list of all order risks for an order. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-07/orders/{order_id}/risks.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#index-2020-07
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     */
+    pub async fn deprecated_202007_get_param_risk(&self, order_id: &str) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-07/orders/{}/risks.json",
+                crate::progenitor_support::encode_path(order_id),
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Creates an order risk for an order.
-    *
-    * This function performs a `POST` to the `/admin/api/2020-07/orders/{order_id}/risks.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#create-2020-07
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    */
+     * Creates an order risk for an order.
+     *
+     * This function performs a `POST` to the `/admin/api/2020-07/orders/{order_id}/risks.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#create-2020-07
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     */
     pub async fn deprecated_202007_create_param_risks(
         &self,
         order_id: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-07/orders/{}/risks.json",
-            crate::progenitor_support::encode_path(order_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-07/orders/{}/risks.json",
+                crate::progenitor_support::encode_path(order_id),
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * Retrieves a single order risk by its ID.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-07/orders/{order_id}/risks/{risk_id}.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#show-2020-07
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    * * `risk_id: &str` -- storefront_access_token_id.
-    */
+     * Retrieves a single order risk by its ID.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-07/orders/{order_id}/risks/{risk_id}.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#show-2020-07
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     * * `risk_id: &str` -- storefront_access_token_id.
+     */
     pub async fn deprecated_202007_get_param_risks_risk(
         &self,
         order_id: &str,
         risk_id: &str,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-07/orders/{}/risks/{}/json",
-            crate::progenitor_support::encode_path(order_id),
-            crate::progenitor_support::encode_path(risk_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-07/orders/{}/risks/{}/json",
+                crate::progenitor_support::encode_path(order_id),
+                crate::progenitor_support::encode_path(risk_id),
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
     * Updates an order risk
 
@@ -1682,18 +1994,25 @@ impl Orders {
         order_id: &str,
         risk_id: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-07/orders/{}/risks/{}/json",
-            crate::progenitor_support::encode_path(order_id),
-            crate::progenitor_support::encode_path(risk_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-07/orders/{}/risks/{}/json",
+                crate::progenitor_support::encode_path(order_id),
+                crate::progenitor_support::encode_path(risk_id),
+            ),
+            None,
         );
-
         self.client
-            .put(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .put(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
     * Deletes an order risk for an order
 
@@ -1714,80 +2033,118 @@ impl Orders {
         &self,
         order_id: &str,
         risk_id: &str,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-07/orders/{}/risks/{}/json",
-            crate::progenitor_support::encode_path(order_id),
-            crate::progenitor_support::encode_path(risk_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-07/orders/{}/risks/{}/json",
+                crate::progenitor_support::encode_path(order_id),
+                crate::progenitor_support::encode_path(risk_id),
+            ),
+            None,
         );
-
-        self.client.delete(&url, None).await
-    }
-
-    /**
-    * Retrieves a list of all order risks for an order. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-10/orders/{order_id}/risks.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#index-2020-10
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    */
-    pub async fn get_param_risk(&self, order_id: &str) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-10/orders/{}/risks.json",
-            crate::progenitor_support::encode_path(order_id),
-        );
-
-        self.client.get(&url, None).await
-    }
-
-    /**
-    * Creates an order risk for an order.
-    *
-    * This function performs a `POST` to the `/admin/api/2020-10/orders/{order_id}/risks.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#create-2020-10
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    */
-    pub async fn create_param_risks(&self, order_id: &str, body: &serde_json::Value) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-10/orders/{}/risks.json",
-            crate::progenitor_support::encode_path(order_id),
-        );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .delete(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
             .await
     }
-
     /**
-    * Retrieves a single order risk by its ID.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-10/orders/{order_id}/risks/{risk_id}.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#show-2020-10
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    * * `risk_id: &str` -- storefront_access_token_id.
-    */
-    pub async fn get_param_risks_risk(&self, order_id: &str, risk_id: &str) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-10/orders/{}/risks/{}/json",
-            crate::progenitor_support::encode_path(order_id),
-            crate::progenitor_support::encode_path(risk_id),
+     * Retrieves a list of all order risks for an order. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-10/orders/{order_id}/risks.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#index-2020-10
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     */
+    pub async fn get_param_risk(&self, order_id: &str) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-10/orders/{}/risks.json",
+                crate::progenitor_support::encode_path(order_id),
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
+    /**
+     * Creates an order risk for an order.
+     *
+     * This function performs a `POST` to the `/admin/api/2020-10/orders/{order_id}/risks.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#create-2020-10
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     */
+    pub async fn create_param_risks(
+        &self,
+        order_id: &str,
+        body: &serde_json::Value,
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-10/orders/{}/risks.json",
+                crate::progenitor_support::encode_path(order_id),
+            ),
+            None,
+        );
+        self.client
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
+            .await
+    }
+    /**
+     * Retrieves a single order risk by its ID.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-10/orders/{order_id}/risks/{risk_id}.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#show-2020-10
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     * * `risk_id: &str` -- storefront_access_token_id.
+     */
+    pub async fn get_param_risks_risk(&self, order_id: &str, risk_id: &str) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-10/orders/{}/risks/{}/json",
+                crate::progenitor_support::encode_path(order_id),
+                crate::progenitor_support::encode_path(risk_id),
+            ),
+            None,
+        );
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
+    }
     /**
     * Updates an order risk
 
@@ -1809,18 +2166,25 @@ impl Orders {
         order_id: &str,
         risk_id: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-10/orders/{}/risks/{}/json",
-            crate::progenitor_support::encode_path(order_id),
-            crate::progenitor_support::encode_path(risk_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-10/orders/{}/risks/{}/json",
+                crate::progenitor_support::encode_path(order_id),
+                crate::progenitor_support::encode_path(risk_id),
+            ),
+            None,
         );
-
         self.client
-            .put(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .put(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
     * Deletes an order risk for an order
 
@@ -1837,88 +2201,122 @@ impl Orders {
     * * `order_id: &str` -- storefront_access_token_id.
     * * `risk_id: &str` -- storefront_access_token_id.
     */
-    pub async fn delete_param_risks_risk(&self, order_id: &str, risk_id: &str) -> Result<()> {
-        let url = format!(
-            "/admin/api/2020-10/orders/{}/risks/{}/json",
-            crate::progenitor_support::encode_path(order_id),
-            crate::progenitor_support::encode_path(risk_id),
+    pub async fn delete_param_risks_risk(&self, order_id: &str, risk_id: &str) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-10/orders/{}/risks/{}/json",
+                crate::progenitor_support::encode_path(order_id),
+                crate::progenitor_support::encode_path(risk_id),
+            ),
+            None,
         );
-
-        self.client.delete(&url, None).await
+        self.client
+            .delete(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Retrieves a list of all order risks for an order. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
-    *
-    * This function performs a `GET` to the `/admin/api/2021-01/orders/{order_id}/risks.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#index-2021-01
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    */
-    pub async fn deprecated_202101_get_param_risk(&self, order_id: &str) -> Result<()> {
-        let url = format!(
-            "/admin/api/2021-01/orders/{}/risks.json",
-            crate::progenitor_support::encode_path(order_id),
+     * Retrieves a list of all order risks for an order. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
+     *
+     * This function performs a `GET` to the `/admin/api/2021-01/orders/{order_id}/risks.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#index-2021-01
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     */
+    pub async fn deprecated_202101_get_param_risk(&self, order_id: &str) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2021-01/orders/{}/risks.json",
+                crate::progenitor_support::encode_path(order_id),
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Creates an order risk for an order.
-    *
-    * This function performs a `POST` to the `/admin/api/2021-01/orders/{order_id}/risks.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#create-2021-01
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    */
+     * Creates an order risk for an order.
+     *
+     * This function performs a `POST` to the `/admin/api/2021-01/orders/{order_id}/risks.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#create-2021-01
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     */
     pub async fn deprecated_202101_create_param_risks(
         &self,
         order_id: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/2021-01/orders/{}/risks.json",
-            crate::progenitor_support::encode_path(order_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2021-01/orders/{}/risks.json",
+                crate::progenitor_support::encode_path(order_id),
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * Retrieves a single order risk by its ID.
-    *
-    * This function performs a `GET` to the `/admin/api/2021-01/orders/{order_id}/risks/{risk_id}.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#show-2021-01
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    * * `risk_id: &str` -- storefront_access_token_id.
-    */
+     * Retrieves a single order risk by its ID.
+     *
+     * This function performs a `GET` to the `/admin/api/2021-01/orders/{order_id}/risks/{risk_id}.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#show-2021-01
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     * * `risk_id: &str` -- storefront_access_token_id.
+     */
     pub async fn deprecated_202101_get_param_risks_risk(
         &self,
         order_id: &str,
         risk_id: &str,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/2021-01/orders/{}/risks/{}/json",
-            crate::progenitor_support::encode_path(order_id),
-            crate::progenitor_support::encode_path(risk_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2021-01/orders/{}/risks/{}/json",
+                crate::progenitor_support::encode_path(order_id),
+                crate::progenitor_support::encode_path(risk_id),
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
     * Updates an order risk
 
@@ -1940,18 +2338,25 @@ impl Orders {
         order_id: &str,
         risk_id: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/2021-01/orders/{}/risks/{}/json",
-            crate::progenitor_support::encode_path(order_id),
-            crate::progenitor_support::encode_path(risk_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2021-01/orders/{}/risks/{}/json",
+                crate::progenitor_support::encode_path(order_id),
+                crate::progenitor_support::encode_path(risk_id),
+            ),
+            None,
         );
-
         self.client
-            .put(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .put(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
     * Deletes an order risk for an order
 
@@ -1972,88 +2377,122 @@ impl Orders {
         &self,
         order_id: &str,
         risk_id: &str,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/2021-01/orders/{}/risks/{}/json",
-            crate::progenitor_support::encode_path(order_id),
-            crate::progenitor_support::encode_path(risk_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2021-01/orders/{}/risks/{}/json",
+                crate::progenitor_support::encode_path(order_id),
+                crate::progenitor_support::encode_path(risk_id),
+            ),
+            None,
         );
-
-        self.client.delete(&url, None).await
+        self.client
+            .delete(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Retrieves a list of all order risks for an order. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
-    *
-    * This function performs a `GET` to the `/admin/api/unstable/orders/{order_id}/risks.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#index-unstable
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    */
-    pub async fn deprecated_unstable_get_param_risk(&self, order_id: &str) -> Result<()> {
-        let url = format!(
-            "/admin/api/unstable/orders/{}/risks.json",
-            crate::progenitor_support::encode_path(order_id),
+     * Retrieves a list of all order risks for an order. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
+     *
+     * This function performs a `GET` to the `/admin/api/unstable/orders/{order_id}/risks.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#index-unstable
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     */
+    pub async fn deprecated_unstable_get_param_risk(&self, order_id: &str) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/unstable/orders/{}/risks.json",
+                crate::progenitor_support::encode_path(order_id),
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Creates an order risk for an order.
-    *
-    * This function performs a `POST` to the `/admin/api/unstable/orders/{order_id}/risks.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#create-unstable
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    */
+     * Creates an order risk for an order.
+     *
+     * This function performs a `POST` to the `/admin/api/unstable/orders/{order_id}/risks.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#create-unstable
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     */
     pub async fn deprecated_unstable_create_param_risks(
         &self,
         order_id: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/unstable/orders/{}/risks.json",
-            crate::progenitor_support::encode_path(order_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/unstable/orders/{}/risks.json",
+                crate::progenitor_support::encode_path(order_id),
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * Retrieves a single order risk by its ID.
-    *
-    * This function performs a `GET` to the `/admin/api/unstable/orders/{order_id}/risks/{risk_id}.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#show-unstable
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    * * `risk_id: &str` -- storefront_access_token_id.
-    */
+     * Retrieves a single order risk by its ID.
+     *
+     * This function performs a `GET` to the `/admin/api/unstable/orders/{order_id}/risks/{risk_id}.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/order-risk#show-unstable
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     * * `risk_id: &str` -- storefront_access_token_id.
+     */
     pub async fn deprecated_unstable_get_param_risks_risk(
         &self,
         order_id: &str,
         risk_id: &str,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/unstable/orders/{}/risks/{}/json",
-            crate::progenitor_support::encode_path(order_id),
-            crate::progenitor_support::encode_path(risk_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/unstable/orders/{}/risks/{}/json",
+                crate::progenitor_support::encode_path(order_id),
+                crate::progenitor_support::encode_path(risk_id),
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
     * Updates an order risk
 
@@ -2075,18 +2514,25 @@ impl Orders {
         order_id: &str,
         risk_id: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/unstable/orders/{}/risks/{}/json",
-            crate::progenitor_support::encode_path(order_id),
-            crate::progenitor_support::encode_path(risk_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/unstable/orders/{}/risks/{}/json",
+                crate::progenitor_support::encode_path(order_id),
+                crate::progenitor_support::encode_path(risk_id),
+            ),
+            None,
         );
-
         self.client
-            .put(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .put(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
     * Deletes an order risk for an order
 
@@ -2107,39 +2553,48 @@ impl Orders {
         &self,
         order_id: &str,
         risk_id: &str,
-    ) -> Result<()> {
-        let url = format!(
-            "/admin/api/unstable/orders/{}/risks/{}/json",
-            crate::progenitor_support::encode_path(order_id),
-            crate::progenitor_support::encode_path(risk_id),
+    ) -> ClientResult<()> {
+        let url = self.client.url(
+            &format!(
+                "/admin/api/unstable/orders/{}/risks/{}/json",
+                crate::progenitor_support::encode_path(order_id),
+                crate::progenitor_support::encode_path(risk_id),
+            ),
+            None,
         );
-
-        self.client.delete(&url, None).await
+        self.client
+            .delete(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Retrieves a list of refunds for an order. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-01/orders/{order_id}/refunds.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/refund#index-2020-01
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    * * `limit: &str` -- The maximum number of results to retrieve.
-    *                     (default: 50, maximum: 250).
-    * * `fields: &str` -- Show only certain fields, specified by a comma-separated list of field names.
-    * * `in_shop_currency: &str` -- Show amounts in the shop currency for the underlying transaction.
-    *                     (default: false).
-    */
+     * Retrieves a list of refunds for an order. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-01/orders/{order_id}/refunds.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/refund#index-2020-01
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     * * `limit: &str` -- The maximum number of results to retrieve.
+     *                     (default: 50, maximum: 250).
+     * * `fields: &str` -- Show only certain fields, specified by a comma-separated list of field names.
+     * * `in_shop_currency: &str` -- Show amounts in the shop currency for the underlying transaction.
+     *                     (default: false).
+     */
     pub async fn deprecated_202001_get_param_refund(
         &self,
         order_id: &str,
         limit: &str,
         fields: &str,
         in_shop_currency: &str,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !fields.is_empty() {
             query_args.push(("fields".to_string(), fields.to_string()));
@@ -2151,15 +2606,24 @@ impl Orders {
             query_args.push(("limit".to_string(), limit.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/2020-01/orders/{}/refunds.json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-01/orders/{}/refunds.json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                query_
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
     * Caution
                 For multi-currency orders, the currency property is required whenever the amount property is provided. For more information, see Migrating to support multiple currencies.
@@ -2222,7 +2686,7 @@ impl Orders {
         transactions: &str,
         currency: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !currency.is_empty() {
             query_args.push(("currency".to_string(), currency.to_string()));
@@ -2260,39 +2724,46 @@ impl Orders {
             query_args.push(("transactions".to_string(), transactions.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/2020-01/orders/{}/refunds.json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-01/orders/{}/refunds.json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                query_
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * Retrieves a specific refund.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-01/orders/{order_id}/refunds/{refund_id}.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/refund#show-2020-01
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    * * `refund_id: &str` -- storefront_access_token_id.
-    * * `fields: &str` -- Show only certain fields, specified by a comma-separated list of field names.
-    * * `in_shop_currency: &str` -- Show amounts in the shop currency for the underlying transaction.
-    *                     (default: false).
-    */
+     * Retrieves a specific refund.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-01/orders/{order_id}/refunds/{refund_id}.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/refund#show-2020-01
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     * * `refund_id: &str` -- storefront_access_token_id.
+     * * `fields: &str` -- Show only certain fields, specified by a comma-separated list of field names.
+     * * `in_shop_currency: &str` -- Show amounts in the shop currency for the underlying transaction.
+     *                     (default: false).
+     */
     pub async fn deprecated_202001_get_param_refunds_refund(
         &self,
         order_id: &str,
         refund_id: &str,
         fields: &str,
         in_shop_currency: &str,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !fields.is_empty() {
             query_args.push(("fields".to_string(), fields.to_string()));
@@ -2301,16 +2772,25 @@ impl Orders {
             query_args.push(("in_shop_currency".to_string(), in_shop_currency.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/2020-01/orders/{}/refunds/{}/json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            crate::progenitor_support::encode_path(refund_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-01/orders/{}/refunds/{}/json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                crate::progenitor_support::encode_path(refund_id),
+                query_
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
     * Caution
               For multi-currency orders, the currency property is required whenever the amount property is provided. For more information, see Migrating to support multiple currencies.
@@ -2366,7 +2846,7 @@ impl Orders {
         refund_line_items: &str,
         currency: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !currency.is_empty() {
             query_args.push(("currency".to_string(), currency.to_string()));
@@ -2381,40 +2861,47 @@ impl Orders {
             query_args.push(("shipping".to_string(), shipping.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/2020-01/orders/{}/refunds/calculate.json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-01/orders/{}/refunds/calculate.json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                query_
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * Retrieves a list of refunds for an order. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-04/orders/{order_id}/refunds.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/refund#index-2020-04
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    * * `limit: &str` -- The maximum number of results to retrieve.
-    *                     (default: 50, maximum: 250).
-    * * `fields: &str` -- Show only certain fields, specified by a comma-separated list of field names.
-    * * `in_shop_currency: &str` -- Show amounts in the shop currency for the underlying transaction.
-    *                     (default: false).
-    */
+     * Retrieves a list of refunds for an order. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-04/orders/{order_id}/refunds.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/refund#index-2020-04
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     * * `limit: &str` -- The maximum number of results to retrieve.
+     *                     (default: 50, maximum: 250).
+     * * `fields: &str` -- Show only certain fields, specified by a comma-separated list of field names.
+     * * `in_shop_currency: &str` -- Show amounts in the shop currency for the underlying transaction.
+     *                     (default: false).
+     */
     pub async fn deprecated_202004_get_param_refund(
         &self,
         order_id: &str,
         limit: &str,
         fields: &str,
         in_shop_currency: &str,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !fields.is_empty() {
             query_args.push(("fields".to_string(), fields.to_string()));
@@ -2426,15 +2913,24 @@ impl Orders {
             query_args.push(("limit".to_string(), limit.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/2020-04/orders/{}/refunds.json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-04/orders/{}/refunds.json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                query_
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
     * Caution
                 For multi-currency orders, the currency property is required whenever the amount property is provided. For more information, see Migrating to support multiple currencies.
@@ -2497,7 +2993,7 @@ impl Orders {
         transactions: &str,
         currency: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !currency.is_empty() {
             query_args.push(("currency".to_string(), currency.to_string()));
@@ -2535,39 +3031,46 @@ impl Orders {
             query_args.push(("transactions".to_string(), transactions.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/2020-04/orders/{}/refunds.json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-04/orders/{}/refunds.json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                query_
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * Retrieves a specific refund.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-04/orders/{order_id}/refunds/{refund_id}.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/refund#show-2020-04
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    * * `refund_id: &str` -- storefront_access_token_id.
-    * * `fields: &str` -- Show only certain fields, specified by a comma-separated list of field names.
-    * * `in_shop_currency: &str` -- Show amounts in the shop currency for the underlying transaction.
-    *                     (default: false).
-    */
+     * Retrieves a specific refund.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-04/orders/{order_id}/refunds/{refund_id}.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/refund#show-2020-04
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     * * `refund_id: &str` -- storefront_access_token_id.
+     * * `fields: &str` -- Show only certain fields, specified by a comma-separated list of field names.
+     * * `in_shop_currency: &str` -- Show amounts in the shop currency for the underlying transaction.
+     *                     (default: false).
+     */
     pub async fn deprecated_202004_get_param_refunds_refund(
         &self,
         order_id: &str,
         refund_id: &str,
         fields: &str,
         in_shop_currency: &str,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !fields.is_empty() {
             query_args.push(("fields".to_string(), fields.to_string()));
@@ -2576,16 +3079,25 @@ impl Orders {
             query_args.push(("in_shop_currency".to_string(), in_shop_currency.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/2020-04/orders/{}/refunds/{}/json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            crate::progenitor_support::encode_path(refund_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-04/orders/{}/refunds/{}/json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                crate::progenitor_support::encode_path(refund_id),
+                query_
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
     * Caution
               For multi-currency orders, the currency property is required whenever the amount property is provided. For more information, see Migrating to support multiple currencies.
@@ -2641,7 +3153,7 @@ impl Orders {
         refund_line_items: &str,
         currency: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !currency.is_empty() {
             query_args.push(("currency".to_string(), currency.to_string()));
@@ -2656,40 +3168,47 @@ impl Orders {
             query_args.push(("shipping".to_string(), shipping.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/2020-04/orders/{}/refunds/calculate.json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-04/orders/{}/refunds/calculate.json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                query_
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * Retrieves a list of refunds for an order. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-07/orders/{order_id}/refunds.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/refund#index-2020-07
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    * * `limit: &str` -- The maximum number of results to retrieve.
-    *                     (default: 50, maximum: 250).
-    * * `fields: &str` -- Show only certain fields, specified by a comma-separated list of field names.
-    * * `in_shop_currency: &str` -- Show amounts in the shop currency for the underlying transaction.
-    *                     (default: false).
-    */
+     * Retrieves a list of refunds for an order. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-07/orders/{order_id}/refunds.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/refund#index-2020-07
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     * * `limit: &str` -- The maximum number of results to retrieve.
+     *                     (default: 50, maximum: 250).
+     * * `fields: &str` -- Show only certain fields, specified by a comma-separated list of field names.
+     * * `in_shop_currency: &str` -- Show amounts in the shop currency for the underlying transaction.
+     *                     (default: false).
+     */
     pub async fn deprecated_202007_get_param_refund(
         &self,
         order_id: &str,
         limit: &str,
         fields: &str,
         in_shop_currency: &str,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !fields.is_empty() {
             query_args.push(("fields".to_string(), fields.to_string()));
@@ -2701,15 +3220,24 @@ impl Orders {
             query_args.push(("limit".to_string(), limit.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/2020-07/orders/{}/refunds.json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-07/orders/{}/refunds.json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                query_
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
     * Caution
                 For multi-currency orders, the currency property is required whenever the amount property is provided. For more information, see Migrating to support multiple currencies.
@@ -2772,7 +3300,7 @@ impl Orders {
         transactions: &str,
         currency: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !currency.is_empty() {
             query_args.push(("currency".to_string(), currency.to_string()));
@@ -2810,39 +3338,46 @@ impl Orders {
             query_args.push(("transactions".to_string(), transactions.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/2020-07/orders/{}/refunds.json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-07/orders/{}/refunds.json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                query_
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * Retrieves a specific refund.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-07/orders/{order_id}/refunds/{refund_id}.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/refund#show-2020-07
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    * * `refund_id: &str` -- storefront_access_token_id.
-    * * `fields: &str` -- Show only certain fields, specified by a comma-separated list of field names.
-    * * `in_shop_currency: &str` -- Show amounts in the shop currency for the underlying transaction.
-    *                     (default: false).
-    */
+     * Retrieves a specific refund.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-07/orders/{order_id}/refunds/{refund_id}.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/refund#show-2020-07
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     * * `refund_id: &str` -- storefront_access_token_id.
+     * * `fields: &str` -- Show only certain fields, specified by a comma-separated list of field names.
+     * * `in_shop_currency: &str` -- Show amounts in the shop currency for the underlying transaction.
+     *                     (default: false).
+     */
     pub async fn deprecated_202007_get_param_refunds_refund(
         &self,
         order_id: &str,
         refund_id: &str,
         fields: &str,
         in_shop_currency: &str,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !fields.is_empty() {
             query_args.push(("fields".to_string(), fields.to_string()));
@@ -2851,16 +3386,25 @@ impl Orders {
             query_args.push(("in_shop_currency".to_string(), in_shop_currency.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/2020-07/orders/{}/refunds/{}/json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            crate::progenitor_support::encode_path(refund_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-07/orders/{}/refunds/{}/json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                crate::progenitor_support::encode_path(refund_id),
+                query_
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
     * Caution
               For multi-currency orders, the currency property is required whenever the amount property is provided. For more information, see Migrating to support multiple currencies.
@@ -2916,7 +3460,7 @@ impl Orders {
         refund_line_items: &str,
         currency: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !currency.is_empty() {
             query_args.push(("currency".to_string(), currency.to_string()));
@@ -2931,40 +3475,47 @@ impl Orders {
             query_args.push(("shipping".to_string(), shipping.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/2020-07/orders/{}/refunds/calculate.json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-07/orders/{}/refunds/calculate.json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                query_
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * Retrieves a list of refunds for an order. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-10/orders/{order_id}/refunds.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/refund#index-2020-10
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    * * `limit: &str` -- The maximum number of results to retrieve.
-    *                     (default: 50, maximum: 250).
-    * * `fields: &str` -- Show only certain fields, specified by a comma-separated list of field names.
-    * * `in_shop_currency: &str` -- Show amounts in the shop currency for the underlying transaction.
-    *                     (default: false).
-    */
+     * Retrieves a list of refunds for an order. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-10/orders/{order_id}/refunds.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/refund#index-2020-10
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     * * `limit: &str` -- The maximum number of results to retrieve.
+     *                     (default: 50, maximum: 250).
+     * * `fields: &str` -- Show only certain fields, specified by a comma-separated list of field names.
+     * * `in_shop_currency: &str` -- Show amounts in the shop currency for the underlying transaction.
+     *                     (default: false).
+     */
     pub async fn get_param_refund(
         &self,
         order_id: &str,
         limit: &str,
         fields: &str,
         in_shop_currency: &str,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !fields.is_empty() {
             query_args.push(("fields".to_string(), fields.to_string()));
@@ -2976,15 +3527,24 @@ impl Orders {
             query_args.push(("limit".to_string(), limit.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/2020-10/orders/{}/refunds.json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-10/orders/{}/refunds.json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                query_
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
     * Caution
                 For multi-currency orders, the currency property is required whenever the amount property is provided. For more information, see Migrating to support multiple currencies.
@@ -3047,7 +3607,7 @@ impl Orders {
         transactions: &str,
         currency: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !currency.is_empty() {
             query_args.push(("currency".to_string(), currency.to_string()));
@@ -3085,39 +3645,46 @@ impl Orders {
             query_args.push(("transactions".to_string(), transactions.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/2020-10/orders/{}/refunds.json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-10/orders/{}/refunds.json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                query_
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * Retrieves a specific refund.
-    *
-    * This function performs a `GET` to the `/admin/api/2020-10/orders/{order_id}/refunds/{refund_id}.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/refund#show-2020-10
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    * * `refund_id: &str` -- storefront_access_token_id.
-    * * `fields: &str` -- Show only certain fields, specified by a comma-separated list of field names.
-    * * `in_shop_currency: &str` -- Show amounts in the shop currency for the underlying transaction.
-    *                     (default: false).
-    */
+     * Retrieves a specific refund.
+     *
+     * This function performs a `GET` to the `/admin/api/2020-10/orders/{order_id}/refunds/{refund_id}.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/refund#show-2020-10
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     * * `refund_id: &str` -- storefront_access_token_id.
+     * * `fields: &str` -- Show only certain fields, specified by a comma-separated list of field names.
+     * * `in_shop_currency: &str` -- Show amounts in the shop currency for the underlying transaction.
+     *                     (default: false).
+     */
     pub async fn get_param_refunds_refund(
         &self,
         order_id: &str,
         refund_id: &str,
         fields: &str,
         in_shop_currency: &str,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !fields.is_empty() {
             query_args.push(("fields".to_string(), fields.to_string()));
@@ -3126,16 +3693,25 @@ impl Orders {
             query_args.push(("in_shop_currency".to_string(), in_shop_currency.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/2020-10/orders/{}/refunds/{}/json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            crate::progenitor_support::encode_path(refund_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-10/orders/{}/refunds/{}/json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                crate::progenitor_support::encode_path(refund_id),
+                query_
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
     * Caution
               For multi-currency orders, the currency property is required whenever the amount property is provided. For more information, see Migrating to support multiple currencies.
@@ -3191,7 +3767,7 @@ impl Orders {
         refund_line_items: &str,
         currency: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !currency.is_empty() {
             query_args.push(("currency".to_string(), currency.to_string()));
@@ -3206,40 +3782,47 @@ impl Orders {
             query_args.push(("shipping".to_string(), shipping.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/2020-10/orders/{}/refunds/calculate.json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2020-10/orders/{}/refunds/calculate.json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                query_
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * Retrieves a list of refunds for an order. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
-    *
-    * This function performs a `GET` to the `/admin/api/2021-01/orders/{order_id}/refunds.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/refund#index-2021-01
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    * * `limit: &str` -- The maximum number of results to retrieve.
-    *                     (default: 50, maximum: 250).
-    * * `fields: &str` -- Show only certain fields, specified by a comma-separated list of field names.
-    * * `in_shop_currency: &str` -- Show amounts in the shop currency for the underlying transaction.
-    *                     (default: false).
-    */
+     * Retrieves a list of refunds for an order. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
+     *
+     * This function performs a `GET` to the `/admin/api/2021-01/orders/{order_id}/refunds.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/refund#index-2021-01
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     * * `limit: &str` -- The maximum number of results to retrieve.
+     *                     (default: 50, maximum: 250).
+     * * `fields: &str` -- Show only certain fields, specified by a comma-separated list of field names.
+     * * `in_shop_currency: &str` -- Show amounts in the shop currency for the underlying transaction.
+     *                     (default: false).
+     */
     pub async fn deprecated_202101_get_param_refund(
         &self,
         order_id: &str,
         limit: &str,
         fields: &str,
         in_shop_currency: &str,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !fields.is_empty() {
             query_args.push(("fields".to_string(), fields.to_string()));
@@ -3251,15 +3834,24 @@ impl Orders {
             query_args.push(("limit".to_string(), limit.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/2021-01/orders/{}/refunds.json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2021-01/orders/{}/refunds.json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                query_
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
     * Caution
                 For multi-currency orders, the currency property is required whenever the amount property is provided. For more information, see Migrating to support multiple currencies.
@@ -3322,7 +3914,7 @@ impl Orders {
         transactions: &str,
         currency: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !currency.is_empty() {
             query_args.push(("currency".to_string(), currency.to_string()));
@@ -3360,39 +3952,46 @@ impl Orders {
             query_args.push(("transactions".to_string(), transactions.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/2021-01/orders/{}/refunds.json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2021-01/orders/{}/refunds.json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                query_
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * Retrieves a specific refund.
-    *
-    * This function performs a `GET` to the `/admin/api/2021-01/orders/{order_id}/refunds/{refund_id}.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/refund#show-2021-01
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    * * `refund_id: &str` -- storefront_access_token_id.
-    * * `fields: &str` -- Show only certain fields, specified by a comma-separated list of field names.
-    * * `in_shop_currency: &str` -- Show amounts in the shop currency for the underlying transaction.
-    *                     (default: false).
-    */
+     * Retrieves a specific refund.
+     *
+     * This function performs a `GET` to the `/admin/api/2021-01/orders/{order_id}/refunds/{refund_id}.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/refund#show-2021-01
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     * * `refund_id: &str` -- storefront_access_token_id.
+     * * `fields: &str` -- Show only certain fields, specified by a comma-separated list of field names.
+     * * `in_shop_currency: &str` -- Show amounts in the shop currency for the underlying transaction.
+     *                     (default: false).
+     */
     pub async fn deprecated_202101_get_param_refunds_refund(
         &self,
         order_id: &str,
         refund_id: &str,
         fields: &str,
         in_shop_currency: &str,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !fields.is_empty() {
             query_args.push(("fields".to_string(), fields.to_string()));
@@ -3401,16 +4000,25 @@ impl Orders {
             query_args.push(("in_shop_currency".to_string(), in_shop_currency.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/2021-01/orders/{}/refunds/{}/json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            crate::progenitor_support::encode_path(refund_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2021-01/orders/{}/refunds/{}/json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                crate::progenitor_support::encode_path(refund_id),
+                query_
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
     * Caution
               For multi-currency orders, the currency property is required whenever the amount property is provided. For more information, see Migrating to support multiple currencies.
@@ -3466,7 +4074,7 @@ impl Orders {
         refund_line_items: &str,
         currency: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !currency.is_empty() {
             query_args.push(("currency".to_string(), currency.to_string()));
@@ -3481,40 +4089,47 @@ impl Orders {
             query_args.push(("shipping".to_string(), shipping.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/2021-01/orders/{}/refunds/calculate.json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/2021-01/orders/{}/refunds/calculate.json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                query_
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * Retrieves a list of refunds for an order. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
-    *
-    * This function performs a `GET` to the `/admin/api/unstable/orders/{order_id}/refunds.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/refund#index-unstable
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    * * `limit: &str` -- The maximum number of results to retrieve.
-    *                     (default: 50, maximum: 250).
-    * * `fields: &str` -- Show only certain fields, specified by a comma-separated list of field names.
-    * * `in_shop_currency: &str` -- Show amounts in the shop currency for the underlying transaction.
-    *                     (default: false).
-    */
+     * Retrieves a list of refunds for an order. Note: As of version 2019-10, this endpoint implements pagination by using links that are provided in the response header. Sending the page parameter will return an error. To learn more, see Making requests to paginated REST Admin API endpoints.
+     *
+     * This function performs a `GET` to the `/admin/api/unstable/orders/{order_id}/refunds.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/refund#index-unstable
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     * * `limit: &str` -- The maximum number of results to retrieve.
+     *                     (default: 50, maximum: 250).
+     * * `fields: &str` -- Show only certain fields, specified by a comma-separated list of field names.
+     * * `in_shop_currency: &str` -- Show amounts in the shop currency for the underlying transaction.
+     *                     (default: false).
+     */
     pub async fn deprecated_unstable_get_param_refund(
         &self,
         order_id: &str,
         limit: &str,
         fields: &str,
         in_shop_currency: &str,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !fields.is_empty() {
             query_args.push(("fields".to_string(), fields.to_string()));
@@ -3526,15 +4141,24 @@ impl Orders {
             query_args.push(("limit".to_string(), limit.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/unstable/orders/{}/refunds.json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/unstable/orders/{}/refunds.json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                query_
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
     * Caution
                 For multi-currency orders, the currency property is required whenever the amount property is provided. For more information, see Migrating to support multiple currencies.
@@ -3597,7 +4221,7 @@ impl Orders {
         transactions: &str,
         currency: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !currency.is_empty() {
             query_args.push(("currency".to_string(), currency.to_string()));
@@ -3635,39 +4259,46 @@ impl Orders {
             query_args.push(("transactions".to_string(), transactions.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/unstable/orders/{}/refunds.json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/unstable/orders/{}/refunds.json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                query_
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
-
     /**
-    * Retrieves a specific refund.
-    *
-    * This function performs a `GET` to the `/admin/api/unstable/orders/{order_id}/refunds/{refund_id}.json` endpoint.
-    *
-    * https://shopify.dev/docs/admin-api/rest/reference/orders/refund#show-unstable
-    *
-    * **Parameters:**
-    *
-    * * `order_id: &str` -- storefront_access_token_id.
-    * * `refund_id: &str` -- storefront_access_token_id.
-    * * `fields: &str` -- Show only certain fields, specified by a comma-separated list of field names.
-    * * `in_shop_currency: &str` -- Show amounts in the shop currency for the underlying transaction.
-    *                     (default: false).
-    */
+     * Retrieves a specific refund.
+     *
+     * This function performs a `GET` to the `/admin/api/unstable/orders/{order_id}/refunds/{refund_id}.json` endpoint.
+     *
+     * https://shopify.dev/docs/admin-api/rest/reference/orders/refund#show-unstable
+     *
+     * **Parameters:**
+     *
+     * * `order_id: &str` -- storefront_access_token_id.
+     * * `refund_id: &str` -- storefront_access_token_id.
+     * * `fields: &str` -- Show only certain fields, specified by a comma-separated list of field names.
+     * * `in_shop_currency: &str` -- Show amounts in the shop currency for the underlying transaction.
+     *                     (default: false).
+     */
     pub async fn deprecated_unstable_get_param_refunds_refund(
         &self,
         order_id: &str,
         refund_id: &str,
         fields: &str,
         in_shop_currency: &str,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !fields.is_empty() {
             query_args.push(("fields".to_string(), fields.to_string()));
@@ -3676,16 +4307,25 @@ impl Orders {
             query_args.push(("in_shop_currency".to_string(), in_shop_currency.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/unstable/orders/{}/refunds/{}/json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            crate::progenitor_support::encode_path(refund_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/unstable/orders/{}/refunds/{}/json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                crate::progenitor_support::encode_path(refund_id),
+                query_
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
     * Caution
               For multi-currency orders, the currency property is required whenever the amount property is provided. For more information, see Migrating to support multiple currencies.
@@ -3741,7 +4381,7 @@ impl Orders {
         refund_line_items: &str,
         currency: &str,
         body: &serde_json::Value,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !currency.is_empty() {
             query_args.push(("currency".to_string(), currency.to_string()));
@@ -3756,14 +4396,22 @@ impl Orders {
             query_args.push(("shipping".to_string(), shipping.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!(
-            "/admin/api/unstable/orders/{}/refunds/calculate.json?{}",
-            crate::progenitor_support::encode_path(order_id),
-            query_
+        let url = self.client.url(
+            &format!(
+                "/admin/api/unstable/orders/{}/refunds/calculate.json?{}",
+                crate::progenitor_support::encode_path(order_id),
+                query_
+            ),
+            None,
         );
-
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
 }

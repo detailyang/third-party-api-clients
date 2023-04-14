@@ -1,6 +1,5 @@
-use anyhow::Result;
-
 use crate::Client;
+use crate::ClientResult;
 
 pub struct EnvelopeDocumentHtmlDefinitions {
     pub client: Client,
@@ -31,14 +30,24 @@ impl EnvelopeDocumentHtmlDefinitions {
         account_id: &str,
         document_id: &str,
         envelope_id: &str,
-    ) -> Result<crate::types::DocumentHtmlDefinitionOriginals> {
-        let url = format!(
-            "/v2.1/accounts/{}/envelopes/{}/documents/{}/html_definitions",
-            crate::progenitor_support::encode_path(account_id),
-            crate::progenitor_support::encode_path(envelope_id),
-            crate::progenitor_support::encode_path(document_id),
+    ) -> ClientResult<crate::types::DocumentHtmlDefinitionOriginals> {
+        let url = self.client.url(
+            &format!(
+                "/v2.1/accounts/{}/envelopes/{}/documents/{}/html_definitions",
+                crate::progenitor_support::encode_path(account_id),
+                crate::progenitor_support::encode_path(envelope_id),
+                crate::progenitor_support::encode_path(document_id),
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
 }

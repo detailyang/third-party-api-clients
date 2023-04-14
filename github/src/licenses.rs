@@ -1,6 +1,5 @@
-use anyhow::Result;
-
 use crate::Client;
+use crate::ClientResult;
 
 pub struct Licenses {
     pub client: Client,
@@ -13,26 +12,26 @@ impl Licenses {
     }
 
     /**
-    * Get all commonly used licenses.
-    *
-    * This function performs a `GET` to the `/licenses` endpoint.
-    *
-    *
-    *
-    * FROM: <https://docs.github.com/rest/reference/licenses#get-all-commonly-used-licenses>
-    *
-    * **Parameters:**
-    *
-    * * `featured: bool`
-    * * `per_page: i64` -- Results per page (max 100).
-    * * `page: i64` -- Page number of the results to fetch.
-    */
+     * Get all commonly used licenses.
+     *
+     * This function performs a `GET` to the `/licenses` endpoint.
+     *
+     *
+     *
+     * FROM: <https://docs.github.com/rest/reference/licenses#get-all-commonly-used-licenses>
+     *
+     * **Parameters:**
+     *
+     * * `featured: bool`
+     * * `per_page: i64` -- Results per page (max 100).
+     * * `page: i64` -- Page number of the results to fetch.
+     */
     pub async fn get_all_commonly_used(
         &self,
         featured: bool,
         per_page: i64,
         page: i64,
-    ) -> Result<Vec<crate::types::LicenseSimple>> {
+    ) -> ClientResult<Vec<crate::types::LicenseSimple>> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if featured {
             query_args.push(("featured".to_string(), featured.to_string()));
@@ -44,85 +43,116 @@ impl Licenses {
             query_args.push(("per_page".to_string(), per_page.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/licenses?{}", query_);
-
-        self.client.get(&url, None).await
+        let url = self.client.url(&format!("/licenses?{}", query_), None);
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Get all commonly used licenses.
-    *
-    * This function performs a `GET` to the `/licenses` endpoint.
-    *
-    * As opposed to `get_all_commonly_used`, this function returns all the pages of the request at once.
-    *
-    *
-    *
-    * FROM: <https://docs.github.com/rest/reference/licenses#get-all-commonly-used-licenses>
-    */
+     * Get all commonly used licenses.
+     *
+     * This function performs a `GET` to the `/licenses` endpoint.
+     *
+     * As opposed to `get_all_commonly_used`, this function returns all the pages of the request at once.
+     *
+     *
+     *
+     * FROM: <https://docs.github.com/rest/reference/licenses#get-all-commonly-used-licenses>
+     */
     pub async fn get_all_all_commonly_used(
         &self,
         featured: bool,
-    ) -> Result<Vec<crate::types::LicenseSimple>> {
+    ) -> ClientResult<Vec<crate::types::LicenseSimple>> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if featured {
             query_args.push(("featured".to_string(), featured.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/licenses?{}", query_);
-
-        self.client.get_all_pages(&url, None).await
+        let url = self.client.url(&format!("/licenses?{}", query_), None);
+        self.client
+            .get_all_pages(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Get a license.
-    *
-    * This function performs a `GET` to the `/licenses/{license}` endpoint.
-    *
-    *
-    *
-    * FROM: <https://docs.github.com/rest/reference/licenses#get-a-license>
-    *
-    * **Parameters:**
-    *
-    * * `license: &str`
-    */
-    pub async fn get(&self, license: &str) -> Result<crate::types::LicenseData> {
-        let url = format!(
-            "/licenses/{}",
-            crate::progenitor_support::encode_path(license),
+     * Get a license.
+     *
+     * This function performs a `GET` to the `/licenses/{license}` endpoint.
+     *
+     *
+     *
+     * FROM: <https://docs.github.com/rest/reference/licenses#get-a-license>
+     *
+     * **Parameters:**
+     *
+     * * `license: &str`
+     */
+    pub async fn get(&self, license: &str) -> ClientResult<crate::types::LicenseData> {
+        let url = self.client.url(
+            &format!(
+                "/licenses/{}",
+                crate::progenitor_support::encode_path(license),
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Get the license for a repository.
-    *
-    * This function performs a `GET` to the `/repos/{owner}/{repo}/license` endpoint.
-    *
-    * This method returns the contents of the repository's license file, if one is detected.
-    *
-    * Similar to [Get repository content](https://docs.github.com/rest/reference/repos#get-repository-content), this method also supports [custom media types](https://docs.github.com/rest/overview/media-types) for retrieving the raw license content or rendered license HTML.
-    *
-    * FROM: <https://docs.github.com/rest/reference/licenses/#get-the-license-for-a-repository>
-    *
-    * **Parameters:**
-    *
-    * * `owner: &str`
-    * * `repo: &str`
-    */
+     * Get the license for a repository.
+     *
+     * This function performs a `GET` to the `/repos/{owner}/{repo}/license` endpoint.
+     *
+     * This method returns the contents of the repository's license file, if one is detected.
+     *
+     * Similar to [Get repository content](https://docs.github.com/rest/reference/repos#get-repository-content), this method also supports [custom media types](https://docs.github.com/rest/overview/media-types) for retrieving the raw license content or rendered license HTML.
+     *
+     * FROM: <https://docs.github.com/rest/reference/licenses/#get-the-license-for-a-repository>
+     *
+     * **Parameters:**
+     *
+     * * `owner: &str`
+     * * `repo: &str`
+     */
     pub async fn get_for_repo(
         &self,
         owner: &str,
         repo: &str,
-    ) -> Result<crate::types::LicenseContent> {
-        let url = format!(
-            "/repos/{}/{}/license",
-            crate::progenitor_support::encode_path(owner),
-            crate::progenitor_support::encode_path(repo),
+    ) -> ClientResult<crate::types::LicenseContent> {
+        let url = self.client.url(
+            &format!(
+                "/repos/{}/{}/license",
+                crate::progenitor_support::encode_path(owner),
+                crate::progenitor_support::encode_path(repo),
+            ),
+            None,
         );
-
-        self.client.get(&url, None).await
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
 }

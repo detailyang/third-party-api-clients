@@ -1,6 +1,5 @@
-use anyhow::Result;
-
 use crate::Client;
+use crate::ClientResult;
 
 pub struct Locations {
     pub client: Client,
@@ -13,22 +12,22 @@ impl Locations {
     }
 
     /**
-    * Get locations.
-    *
-    * This function performs a `GET` to the `/location` endpoint.
-    *
-    * **Parameters:**
-    *
-    * * `include_inactive: bool` -- True if the inventory item is marked as a digital item.
-    * * `receiving_enabled: bool` -- True if the inventory item is marked as a digital item.
-    * * `access_granted: bool` -- True if the inventory item is marked as a digital item.
-    */
+     * Get locations.
+     *
+     * This function performs a `GET` to the `/location` endpoint.
+     *
+     * **Parameters:**
+     *
+     * * `include_inactive: bool` -- True if the inventory item is marked as a digital item.
+     * * `receiving_enabled: bool` -- True if the inventory item is marked as a digital item.
+     * * `access_granted: bool` -- True if the inventory item is marked as a digital item.
+     */
     pub async fn get_page(
         &self,
         include_inactive: bool,
         receiving_enabled: bool,
         access_granted: bool,
-    ) -> Result<Vec<crate::types::IntegrationsLocationInternalAllOf>> {
+    ) -> ClientResult<Vec<crate::types::IntegrationsLocationInternalAllOf>> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if access_granted {
             query_args.push(("AccessGranted".to_string(), access_granted.to_string()));
@@ -43,24 +42,30 @@ impl Locations {
             ));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/location?{}", query_);
-
-        self.client.get(&url, None).await
+        let url = self.client.url(&format!("/location?{}", query_), None);
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
-
     /**
-    * Get locations.
-    *
-    * This function performs a `GET` to the `/location` endpoint.
-    *
-    * As opposed to `get`, this function returns all the pages of the request at once.
-    */
+     * Get locations.
+     *
+     * This function performs a `GET` to the `/location` endpoint.
+     *
+     * As opposed to `get`, this function returns all the pages of the request at once.
+     */
     pub async fn get_all(
         &self,
         include_inactive: bool,
         receiving_enabled: bool,
         access_granted: bool,
-    ) -> Result<Vec<crate::types::IntegrationsLocationInternalAllOf>> {
+    ) -> ClientResult<Vec<crate::types::IntegrationsLocationInternalAllOf>> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if access_granted {
             query_args.push(("AccessGranted".to_string(), access_granted.to_string()));
@@ -75,8 +80,15 @@ impl Locations {
             ));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/location?{}", query_);
-
-        self.client.get_all_pages(&url, None).await
+        let url = self.client.url(&format!("/location?{}", query_), None);
+        self.client
+            .get_all_pages(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
 }

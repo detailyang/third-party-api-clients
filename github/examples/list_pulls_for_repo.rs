@@ -11,10 +11,10 @@ use octorust::{
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app_id_str = env::var("GH_APP_ID").unwrap();
-    let app_id = app_id_str.parse::<u64>().unwrap();
+    let app_id = app_id_str.parse::<i64>().unwrap();
 
     let app_installation_id_str = env::var("GH_INSTALLATION_ID").unwrap();
-    let app_installation_id = app_installation_id_str.parse::<u64>().unwrap();
+    let app_installation_id = app_installation_id_str.parse::<i64>().unwrap();
 
     let encoded_private_key = env::var("GH_PRIVATE_KEY").unwrap();
     let private_key = base64::decode(encoded_private_key).unwrap();
@@ -30,7 +30,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         reqwest_retry::policies::ExponentialBackoff::builder().build_with_max_retries(3);
     let client = reqwest_middleware::ClientBuilder::new(http)
         // Trace HTTP requests. See the tracing crate to make use of these traces.
-        .with(reqwest_tracing::TracingMiddleware)
+        .with(reqwest_tracing::TracingMiddleware::default())
         // Retry failed requests.
         .with(reqwest_retry::RetryTransientMiddleware::new_with_policy(
             retry_policy,
@@ -49,7 +49,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     #[cfg(not(feature = "httpcache"))]
     let github = Client::custom(
-        "https://api.github.com",
         concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION")),
         Credentials::InstallationToken(token_generator),
         client,
@@ -57,7 +56,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     #[cfg(feature = "httpcache")]
     let github = Client::custom(
-        "https://api.github.com",
         concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION")),
         Credentials::InstallationToken(token_generator),
         client,

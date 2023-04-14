@@ -52,6 +52,7 @@ pub fn generate_types(ts: &mut TypeSpace, proper_name: &str) -> Result<String> {
                 }
                 TypeDetails::AllOf(omap, _) => a(&do_all_of_type(ts, omap, sn)),
                 TypeDetails::Object(omap, schema_data) => {
+                    // panic!("{:#?} {:#?} {:#?}", te.details, omap, schema_data);
                     /*
                      * TODO: This breaks things so ignore for now.
                      * Eventually this should work, we should ignore empty structs.
@@ -96,6 +97,9 @@ pub fn generate_types(ts: &mut TypeSpace, proper_name: &str) -> Result<String> {
                         || sn == "DescriptionlessJobOptionsDataType"
                         || sn == "SubmitJobOptions"
                         || sn == "SubmitJobOptionsData"
+                        || sn == "MinimalRepository"
+                        || sn == "WorkflowRun"
+                        || sn == "CheckAnnotation"
                     {
                         a(
                             "#[derive(Serialize, Default, Deserialize, PartialEq, Debug, Clone, \

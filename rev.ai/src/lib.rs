@@ -223,7 +223,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! revai = "0.2.4"
+//! revai = "0.5.0"
 //! ```
 //!
 //! ## Basic example
@@ -252,6 +252,7 @@
 //! let rev.ai = Client::new_from_env();
 //! ```
 //!
+#![allow(clippy::derive_partial_eq_without_eq)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::nonstandard_macro_braces)]
 #![allow(clippy::large_enum_variant)]
@@ -262,17 +263,45 @@
 pub mod account;
 pub mod captions;
 pub mod jobs;
-#[cfg(test)]
-mod tests;
 pub mod traits;
 pub mod transcript;
 pub mod types;
 #[doc(hidden)]
 pub mod utils;
 
-use anyhow::{anyhow, Error, Result};
+use thiserror::Error;
+type ClientResult<T> = Result<T, ClientError>;
 
-pub const DEFAULT_HOST: &str = "https://api.rev.ai/speechtotext/v1";
+/// Errors returned by the client
+#[derive(Debug, Error)]
+pub enum ClientError {
+    /// utf8 convertion error
+    #[error(transparent)]
+    FromUtf8Error(#[from] std::string::FromUtf8Error),
+    /// URL Parsing Error
+    #[error(transparent)]
+    UrlParserError(#[from] url::ParseError),
+    /// Serde JSON parsing error
+    #[error(transparent)]
+    SerdeJsonError(#[from] serde_json::Error),
+    /// Errors returned by reqwest
+    #[error(transparent)]
+    ReqwestError(#[from] reqwest::Error),
+    /// Errors returned by reqwest::header
+    #[error(transparent)]
+    InvalidHeaderValue(#[from] reqwest::header::InvalidHeaderValue),
+    /// Errors returned by reqwest middleware
+    #[error(transparent)]
+    ReqwestMiddleWareError(#[from] reqwest_middleware::Error),
+    /// Generic HTTP Error
+    #[error("HTTP Error. Code: {status}, message: {error}")]
+    HttpError {
+        status: http::StatusCode,
+        error: String,
+    },
+}
+
+pub const FALLBACK_HOST: &str = "https://api.rev.ai/speechtotext/v1";
 
 mod progenitor_support {
     use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
@@ -294,12 +323,28 @@ mod progenitor_support {
     }
 }
 
+#[derive(Debug, Default)]
+pub(crate) struct Message {
+    pub body: Option<reqwest::Body>,
+    pub content_type: Option<String>,
+}
+
 use std::env;
+
+#[derive(Debug, Default, Clone)]
+pub struct RootDefaultServer {}
+
+impl RootDefaultServer {
+    pub fn default_url(&self) -> &str {
+        "https://api.rev.ai/speechtotext/v1"
+    }
+}
 
 /// Entrypoint for interacting with the API client.
 #[derive(Clone)]
 pub struct Client {
     host: String,
+    host_override: Option<String>,
     token: String,
 
     client: reqwest_middleware::ClientWithMiddleware,
@@ -320,15 +365,19 @@ impl Client {
             Ok(c) => {
                 let client = reqwest_middleware::ClientBuilder::new(c)
                     // Trace HTTP requests. See the tracing crate to make use of these traces.
-                    .with(reqwest_tracing::TracingMiddleware)
+                    .with(reqwest_tracing::TracingMiddleware::default())
                     // Retry failed requests.
-                    .with(reqwest_retry::RetryTransientMiddleware::new_with_policy(
-                        retry_policy,
+                    .with(reqwest_conditional_middleware::ConditionalMiddleware::new(
+                        reqwest_retry::RetryTransientMiddleware::new_with_policy(retry_policy),
+                        |req: &reqwest::Request| req.try_clone().is_some(),
                     ))
                     .build();
 
+                let host = RootDefaultServer::default().default_url().to_string();
+
                 Client {
-                    host: DEFAULT_HOST.to_string(),
+                    host,
+                    host_override: None,
                     token: token.to_string(),
 
                     client,
@@ -338,14 +387,33 @@ impl Client {
         }
     }
 
-    /// Override the default host for the client.
-    pub fn with_host<H>(&self, host: H) -> Self
+    /// Override the host for all endpoins in the client.
+    pub fn with_host_override<H>(&mut self, host: H) -> &mut Self
     where
         H: ToString,
     {
-        let mut c = self.clone();
-        c.host = host.to_string();
-        c
+        self.host_override = Some(host.to_string());
+        self
+    }
+
+    /// Disables the global host override for the client.
+    pub fn remove_host_override(&mut self) -> &mut Self {
+        self.host_override = None;
+        self
+    }
+
+    pub fn get_host_override(&self) -> Option<&str> {
+        self.host_override.as_deref()
+    }
+
+    pub(crate) fn url(&self, path: &str, host: Option<&str>) -> String {
+        format!(
+            "{}{}",
+            self.get_host_override()
+                .or(host)
+                .unwrap_or(self.host.as_str()),
+            path
+        )
     }
 
     /// Create a new Client struct from environment variables. It
@@ -360,49 +428,43 @@ impl Client {
         Client::new(token)
     }
 
-    async fn url_and_auth(&self, uri: &str) -> Result<(reqwest::Url, Option<String>)> {
-        let parsed_url = uri.parse::<reqwest::Url>();
-
+    async fn url_and_auth(&self, uri: &str) -> ClientResult<(reqwest::Url, Option<String>)> {
+        let parsed_url = uri.parse::<reqwest::Url>()?;
         let auth = format!("Bearer {}", self.token);
-        parsed_url.map(|u| (u, Some(auth))).map_err(Error::from)
+        Ok((parsed_url, Some(auth)))
     }
 
     async fn request_raw(
         &self,
         method: reqwest::Method,
         uri: &str,
-        body: Option<reqwest::Body>,
-    ) -> Result<reqwest::Response> {
-        let u = if uri.starts_with("https://") {
-            uri.to_string()
-        } else {
-            (self.host.clone() + uri).to_string()
-        };
-        let (url, auth) = self.url_and_auth(&u).await?;
-
+        message: Message,
+    ) -> ClientResult<reqwest::Response> {
+        let (url, auth) = self.url_and_auth(uri).await?;
         let instance = <&Client>::clone(&self);
-
         let mut req = instance.client.request(method.clone(), url);
-
         // Set the default headers.
         req = req.header(
             reqwest::header::ACCEPT,
             reqwest::header::HeaderValue::from_static("application/json"),
         );
-        req = req.header(
-            reqwest::header::CONTENT_TYPE,
-            reqwest::header::HeaderValue::from_static("application/json"),
-        );
+
+        if let Some(content_type) = &message.content_type {
+            req = req.header(
+                reqwest::header::CONTENT_TYPE,
+                reqwest::header::HeaderValue::from_str(content_type).unwrap(),
+            );
+        } else {
+            req = req.header(
+                reqwest::header::CONTENT_TYPE,
+                reqwest::header::HeaderValue::from_static("application/json"),
+            );
+        }
 
         if let Some(auth_str) = auth {
             req = req.header(http::header::AUTHORIZATION, &*auth_str);
         }
-
-        if let Some(body) = body {
-            log::debug!(
-                "body: {:?}",
-                String::from_utf8(body.as_bytes().unwrap().to_vec()).unwrap()
-            );
+        if let Some(body) = message.body {
             req = req.body(body);
         }
         Ok(req.send().await?)
@@ -412,39 +474,38 @@ impl Client {
         &self,
         method: reqwest::Method,
         uri: &str,
-        body: Option<reqwest::Body>,
-    ) -> Result<Out>
+        message: Message,
+    ) -> ClientResult<Out>
     where
         Out: serde::de::DeserializeOwned + 'static + Send,
     {
-        let response = self.request_raw(method, uri, body).await?;
+        let response = self.request_raw(method, uri, message).await?;
 
         let status = response.status();
 
         let response_body = response.bytes().await?;
 
         if status.is_success() {
-            log::debug!(
-                "response payload {}",
-                String::from_utf8_lossy(&response_body)
-            );
+            log::debug!("Received successful response. Read payload.");
             let parsed_response = if status == http::StatusCode::NO_CONTENT
                 || std::any::TypeId::of::<Out>() == std::any::TypeId::of::<()>()
             {
-                serde_json::from_str("null")
+                serde_json::from_str("null")?
             } else {
-                serde_json::from_slice::<Out>(&response_body)
+                serde_json::from_slice::<Out>(&response_body)?
             };
-            parsed_response.map_err(Error::from)
+            Ok(parsed_response)
         } else {
             let error = if response_body.is_empty() {
-                anyhow!("code: {}, empty response", status)
-            } else {
-                anyhow!(
-                    "code: {}, error: {:?}",
+                ClientError::HttpError {
                     status,
-                    String::from_utf8_lossy(&response_body),
-                )
+                    error: "empty response".into(),
+                }
+            } else {
+                ClientError::HttpError {
+                    status,
+                    error: String::from_utf8_lossy(&response_body).into(),
+                }
             };
 
             Err(error)
@@ -455,45 +516,46 @@ impl Client {
         &self,
         method: http::Method,
         uri: &str,
-        body: Option<reqwest::Body>,
-    ) -> Result<(Option<hyperx::header::Link>, Out)>
+        message: Message,
+    ) -> ClientResult<(Option<crate::utils::NextLink>, Out)>
     where
         Out: serde::de::DeserializeOwned + 'static + Send,
     {
-        let response = self.request_raw(method, uri, body).await?;
+        let response = self.request_raw(method, uri, message).await?;
 
         let status = response.status();
         let link = response
             .headers()
             .get(http::header::LINK)
             .and_then(|l| l.to_str().ok())
-            .and_then(|l| l.parse().ok());
+            .and_then(|l| parse_link_header::parse(l).ok())
+            .as_ref()
+            .and_then(crate::utils::next_link);
 
         let response_body = response.bytes().await?;
 
         if status.is_success() {
-            log::debug!(
-                "response payload {}",
-                String::from_utf8_lossy(&response_body)
-            );
+            log::debug!("Received successful response. Read payload.");
 
             let parsed_response = if status == http::StatusCode::NO_CONTENT
                 || std::any::TypeId::of::<Out>() == std::any::TypeId::of::<()>()
             {
-                serde_json::from_str("null")
+                serde_json::from_str("null")?
             } else {
-                serde_json::from_slice::<Out>(&response_body)
+                serde_json::from_slice::<Out>(&response_body)?
             };
-            parsed_response.map(|out| (link, out)).map_err(Error::from)
+            Ok((link, parsed_response))
         } else {
             let error = if response_body.is_empty() {
-                anyhow!("code: {}, empty response", status)
-            } else {
-                anyhow!(
-                    "code: {}, error: {:?}",
+                ClientError::HttpError {
                     status,
-                    String::from_utf8_lossy(&response_body),
-                )
+                    error: "empty response".into(),
+                }
+            } else {
+                ClientError::HttpError {
+                    status,
+                    error: String::from_utf8_lossy(&response_body).into(),
+                }
             };
             Err(error)
         }
@@ -501,16 +563,11 @@ impl Client {
 
     /* TODO: make this more DRY */
     #[allow(dead_code)]
-    async fn post_form<Out>(&self, uri: &str, form: reqwest::multipart::Form) -> Result<Out>
+    async fn post_form<Out>(&self, uri: &str, form: reqwest::multipart::Form) -> ClientResult<Out>
     where
         Out: serde::de::DeserializeOwned + 'static + Send,
     {
-        let u = if uri.starts_with("https://") {
-            uri.to_string()
-        } else {
-            (self.host.clone() + uri).to_string()
-        };
-        let (url, auth) = self.url_and_auth(&u).await?;
+        let (url, auth) = self.url_and_auth(uri).await?;
 
         let instance = <&Client>::clone(&self);
 
@@ -521,16 +578,11 @@ impl Client {
             reqwest::header::ACCEPT,
             reqwest::header::HeaderValue::from_static("application/json"),
         );
-        req = req.header(
-            reqwest::header::CONTENT_TYPE,
-            reqwest::header::HeaderValue::from_static("application/json"),
-        );
 
         if let Some(auth_str) = auth {
             req = req.header(http::header::AUTHORIZATION, &*auth_str);
         }
 
-        log::debug!("form: {:?}", form);
         req = req.multipart(form);
 
         let response = req.send().await?;
@@ -540,32 +592,30 @@ impl Client {
         let response_body = response.bytes().await?;
 
         if status.is_success() {
-            log::debug!(
-                "response payload {}",
-                String::from_utf8_lossy(&response_body)
-            );
+            log::debug!("Received successful response. Read payload.");
             let parsed_response = if status == http::StatusCode::NO_CONTENT
                 || std::any::TypeId::of::<Out>() == std::any::TypeId::of::<()>()
             {
-                serde_json::from_str("null")
+                serde_json::from_str("null")?
             } else if std::any::TypeId::of::<Out>() == std::any::TypeId::of::<String>() {
                 // Parse the output as a string.
-                serde_json::from_value(serde_json::json!(&String::from_utf8(
-                    response_body.to_vec()
-                )?))
+                let s = String::from_utf8(response_body.to_vec())?;
+                serde_json::from_value(serde_json::json!(&s))?
             } else {
-                serde_json::from_slice::<Out>(&response_body)
+                serde_json::from_slice::<Out>(&response_body)?
             };
-            parsed_response.map_err(Error::from)
+            Ok(parsed_response)
         } else {
             let error = if response_body.is_empty() {
-                anyhow!("code: {}, empty response", status)
-            } else {
-                anyhow!(
-                    "code: {}, error: {:?}",
+                ClientError::HttpError {
                     status,
-                    String::from_utf8_lossy(&response_body),
-                )
+                    error: "empty response".into(),
+                }
+            } else {
+                ClientError::HttpError {
+                    status,
+                    error: String::from_utf8_lossy(&response_body).into(),
+                }
             };
 
             Err(error)
@@ -579,16 +629,11 @@ impl Client {
         method: reqwest::Method,
         uri: &str,
         accept_mime_type: &str,
-    ) -> Result<Out>
+    ) -> ClientResult<Out>
     where
         Out: serde::de::DeserializeOwned + 'static + Send,
     {
-        let u = if uri.starts_with("https://") {
-            uri.to_string()
-        } else {
-            (self.host.clone() + uri).to_string()
-        };
-        let (url, auth) = self.url_and_auth(&u).await?;
+        let (url, auth) = self.url_and_auth(uri).await?;
 
         let instance = <&Client>::clone(&self);
 
@@ -611,32 +656,30 @@ impl Client {
         let response_body = response.bytes().await?;
 
         if status.is_success() {
-            log::debug!(
-                "response payload {}",
-                String::from_utf8_lossy(&response_body)
-            );
+            log::debug!("Received successful response. Read payload.");
             let parsed_response = if status == http::StatusCode::NO_CONTENT
                 || std::any::TypeId::of::<Out>() == std::any::TypeId::of::<()>()
             {
-                serde_json::from_str("null")
+                serde_json::from_str("null")?
             } else if std::any::TypeId::of::<Out>() == std::any::TypeId::of::<String>() {
                 // Parse the output as a string.
-                serde_json::from_value(serde_json::json!(&String::from_utf8(
-                    response_body.to_vec()
-                )?))
+                let s = String::from_utf8(response_body.to_vec())?;
+                serde_json::from_value(serde_json::json!(&s))?
             } else {
-                serde_json::from_slice::<Out>(&response_body)
+                serde_json::from_slice::<Out>(&response_body)?
             };
-            parsed_response.map_err(Error::from)
+            Ok(parsed_response)
         } else {
             let error = if response_body.is_empty() {
-                anyhow!("code: {}, empty response", status)
-            } else {
-                anyhow!(
-                    "code: {}, error: {:?}",
+                ClientError::HttpError {
                     status,
-                    String::from_utf8_lossy(&response_body),
-                )
+                    error: "empty response".into(),
+                }
+            } else {
+                ClientError::HttpError {
+                    status,
+                    error: String::from_utf8_lossy(&response_body).into(),
+                }
             };
 
             Err(error)
@@ -651,16 +694,11 @@ impl Client {
         uri: &str,
         content: &[u8],
         mime_type: &str,
-    ) -> Result<Out>
+    ) -> ClientResult<Out>
     where
         Out: serde::de::DeserializeOwned + 'static + Send,
     {
-        let u = if uri.starts_with("https://") {
-            uri.to_string()
-        } else {
-            (self.host.clone() + uri).to_string()
-        };
-        let (url, auth) = self.url_and_auth(&u).await?;
+        let (url, auth) = self.url_and_auth(uri).await?;
 
         let instance = <&Client>::clone(&self);
 
@@ -703,27 +741,26 @@ impl Client {
         let response_body = response.bytes().await?;
 
         if status.is_success() {
-            log::debug!(
-                "response payload {}",
-                String::from_utf8_lossy(&response_body)
-            );
+            log::debug!("Received successful response. Read payload.");
             let parsed_response = if status == http::StatusCode::NO_CONTENT
                 || std::any::TypeId::of::<Out>() == std::any::TypeId::of::<()>()
             {
-                serde_json::from_str("null")
+                serde_json::from_str("null")?
             } else {
-                serde_json::from_slice::<Out>(&response_body)
+                serde_json::from_slice::<Out>(&response_body)?
             };
-            parsed_response.map_err(Error::from)
+            Ok(parsed_response)
         } else {
             let error = if response_body.is_empty() {
-                anyhow!("code: {}, empty response", status)
-            } else {
-                anyhow!(
-                    "code: {}, error: {:?}",
+                ClientError::HttpError {
                     status,
-                    String::from_utf8_lossy(&response_body),
-                )
+                    error: "empty response".into(),
+                }
+            } else {
+                ClientError::HttpError {
+                    status,
+                    error: String::from_utf8_lossy(&response_body).into(),
+                }
             };
 
             Err(error)
@@ -734,26 +771,25 @@ impl Client {
         &self,
         method: http::Method,
         uri: &str,
-        body: Option<reqwest::Body>,
-    ) -> Result<D>
+        message: Message,
+    ) -> ClientResult<D>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
-        let r = self.request(method, uri, body).await?;
+        let r = self.request(method, uri, message).await?;
         Ok(r)
     }
 
     #[allow(dead_code)]
-    async fn get<D>(&self, uri: &str, message: Option<reqwest::Body>) -> Result<D>
+    async fn get<D>(&self, uri: &str, message: Message) -> ClientResult<D>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
-        self.request_entity(http::Method::GET, &(self.host.to_string() + uri), message)
-            .await
+        self.request_entity(http::Method::GET, uri, message).await
     }
 
     #[allow(dead_code)]
-    async fn get_all_pages<D>(&self, uri: &str, _message: Option<reqwest::Body>) -> Result<Vec<D>>
+    async fn get_all_pages<D>(&self, uri: &str, _message: Message) -> ClientResult<Vec<D>>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
@@ -763,7 +799,7 @@ impl Client {
 
     /// "unfold" paginated results of a vector of items
     #[allow(dead_code)]
-    async fn unfold<D>(&self, uri: &str) -> Result<Vec<D>>
+    async fn unfold<D>(&self, uri: &str) -> ClientResult<Vec<D>>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
@@ -773,8 +809,8 @@ impl Client {
         while !items.is_empty() {
             global_items.append(&mut items);
             // We need to get the next link.
-            if let Some(url) = link.as_ref().and_then(crate::utils::next_link) {
-                let url = reqwest::Url::parse(&url)?;
+            if let Some(url) = link.as_ref() {
+                let url = reqwest::Url::parse(&url.0)?;
                 let (new_link, new_items) = self.get_pages_url(&url).await?;
                 link = new_link;
                 items = new_items;
@@ -785,11 +821,14 @@ impl Client {
     }
 
     #[allow(dead_code)]
-    async fn get_pages<D>(&self, uri: &str) -> Result<(Option<hyperx::header::Link>, Vec<D>)>
+    async fn get_pages<D>(
+        &self,
+        uri: &str,
+    ) -> ClientResult<(Option<crate::utils::NextLink>, Vec<D>)>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
-        self.request_with_links(http::Method::GET, &(self.host.to_string() + uri), None)
+        self.request_with_links(http::Method::GET, uri, Message::default())
             .await
     }
 
@@ -797,52 +836,45 @@ impl Client {
     async fn get_pages_url<D>(
         &self,
         url: &reqwest::Url,
-    ) -> Result<(Option<hyperx::header::Link>, Vec<D>)>
+    ) -> ClientResult<(Option<crate::utils::NextLink>, Vec<D>)>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
-        self.request_with_links(http::Method::GET, url.as_str(), None)
+        self.request_with_links(http::Method::GET, url.as_str(), Message::default())
             .await
     }
 
     #[allow(dead_code)]
-    async fn post<D>(&self, uri: &str, message: Option<reqwest::Body>) -> Result<D>
+    async fn post<D>(&self, uri: &str, message: Message) -> ClientResult<D>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
-        self.request_entity(http::Method::POST, &(self.host.to_string() + uri), message)
-            .await
+        self.request_entity(http::Method::POST, uri, message).await
     }
 
     #[allow(dead_code)]
-    async fn patch<D>(&self, uri: &str, message: Option<reqwest::Body>) -> Result<D>
+    async fn patch<D>(&self, uri: &str, message: Message) -> ClientResult<D>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
-        self.request_entity(http::Method::PATCH, &(self.host.to_string() + uri), message)
-            .await
+        self.request_entity(http::Method::PATCH, uri, message).await
     }
 
     #[allow(dead_code)]
-    async fn put<D>(&self, uri: &str, message: Option<reqwest::Body>) -> Result<D>
+    async fn put<D>(&self, uri: &str, message: Message) -> ClientResult<D>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
-        self.request_entity(http::Method::PUT, &(self.host.to_string() + uri), message)
-            .await
+        self.request_entity(http::Method::PUT, uri, message).await
     }
 
     #[allow(dead_code)]
-    async fn delete<D>(&self, uri: &str, message: Option<reqwest::Body>) -> Result<D>
+    async fn delete<D>(&self, uri: &str, message: Message) -> ClientResult<D>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
-        self.request_entity(
-            http::Method::DELETE,
-            &(self.host.to_string() + uri),
-            message,
-        )
-        .await
+        self.request_entity(http::Method::DELETE, uri, message)
+            .await
     }
 
     pub fn account(&self) -> account::Account {

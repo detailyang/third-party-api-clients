@@ -19,6 +19,28 @@ use inflector::cases::{
 use openapiv3::OpenAPI;
 use serde::Deserialize;
 
+use client::GeneratedServers;
+
+enum TemplateType {
+    Github,
+    GenericApiKey,
+    GenericClientCredentials,
+    GenericToken,
+}
+
+impl TemplateType {
+    fn from_proper_name(proper_name: &str) -> TemplateType {
+        match proper_name {
+            "GitHub" => TemplateType::Github,
+            "SendGrid" | "Giphy" | "Rev.ai" | "Okta" | "ShipBob" | "Stripe" => {
+                TemplateType::GenericApiKey
+            }
+            "TripActions" => TemplateType::GenericClientCredentials,
+            _ => TemplateType::GenericToken,
+        }
+    }
+}
+
 fn save<P>(p: P, data: &str) -> Result<()>
 where
     P: AsRef<Path>,
@@ -64,7 +86,7 @@ where
     }
 
     if !api.servers.is_empty() {
-        println!("servers not presently supported");
+        println!("Only default server urls are supported. Variables are not configurable");
     }
 
     if api.security.is_some() {
@@ -131,7 +153,7 @@ where
                             }
 
                             if !o.servers.is_empty() {
-                                println!("op {}: servers, unsupported", oid);
+                                println!("op {}: servers are only partially supported. Variables are not supported", oid);
                             }
 
                             if o.security.is_some() {
@@ -2133,9 +2155,7 @@ fn get_parameter_data(param: &openapiv3::Parameter) -> Option<&openapiv3::Parame
             allow_reserved: _,
             style: _,
             allow_empty_value: _,
-        } => {
-            Some(parameter_data)
-        }
+        } => Some(parameter_data),
     }
 }
 
@@ -2204,7 +2224,7 @@ fn render_param(
 
     a(&format!("impl std::fmt::Display for {} {{", sn));
     a(r#"fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {"#);
-    a(r#"match &*self {"#);
+    a(r#"match self {"#);
     for e in &enums {
         if struct_name(e).is_empty() {
             // TODO: do something for empty(?)
@@ -2269,6 +2289,7 @@ fn gen(
     token_endpoint: &str,
     user_consent_endpoint: &str,
     add_post_header: &str,
+    servers: &GeneratedServers,
 ) -> Result<String> {
     let mut out = String::new();
 
@@ -2300,8 +2321,6 @@ fn gen(
     {
         a("pub mod traits;");
     }
-    a("#[cfg(test)]");
-    a("mod tests;");
     // Hopefully there is never a "tag" named after these reserved libs.
     a("pub mod types;");
     a("#[doc(hidden)]");
@@ -2349,17 +2368,90 @@ fn gen(
         }
     }
 
+    let template_type = TemplateType::from_proper_name(proper_name);
+
     a("");
-    if proper_name.starts_with("Google") {
-        a("use std::io::Write;");
-        a("");
+
+    a("use thiserror::Error;");
+    a("type ClientResult<T> = Result<T, ClientError>;");
+    a("");
+    a(r#"
+/// Errors returned by the client
+#[derive(Debug, Error)]
+pub enum ClientError {"#);
+
+    match template_type {
+        TemplateType::Github => {
+            a(r#"// Github only
+            /// Ratelimited
+            #[error("Rate limited for the next {duration} seconds")]
+            RateLimited{
+                duration: u64,
+            },
+            /// JWT errors from auth.rs
+            #[error(transparent)]
+            JsonWebTokenError(#[from] jsonwebtoken::errors::Error),
+            /// IO Errors
+            #[cfg(feature = "httpcache")]
+            #[error(transparent)]
+            #[cfg(feature = "httpcache")]
+            IoError(#[from] std::io::Error),"#);
+        }
+        TemplateType::GenericApiKey | TemplateType::GenericClientCredentials => {
+            a(r#"/// utf8 convertion error
+            #[error(transparent)]
+            FromUtf8Error(#[from] std::string::FromUtf8Error),"#);
+        }
+        TemplateType::GenericToken => {
+            a(r#"// Generic Token Client
+            /// Empty refresh auth token
+            #[error("Refresh AuthToken is empty")]
+            EmptyRefreshToken,
+            /// utf8 convertion error
+            #[error(transparent)]
+            FromUtf8Error(#[from] std::string::FromUtf8Error),"#);
+        }
     }
 
-    a("use anyhow::{anyhow, Error, Result};");
+    // Google Drive only due to traits.rs
+    if proper_name == "Google Drive" {
+        a(r#"
+        /// Google Drive not found
+        #[error("{name:?}: Drive not found")]
+        DriveNotFound{name: String},
+        /// str convertion error
+        #[error(transparent)]
+        ToStrError(#[from] reqwest::header::ToStrError),"#);
+    }
+
+    a(r#"/// URL Parsing Error
+    #[error(transparent)]
+    UrlParserError(#[from] url::ParseError),
+    /// Serde JSON parsing error
+    #[error(transparent)]
+    SerdeJsonError(#[from] serde_json::Error),
+    /// Errors returned by reqwest
+    #[error(transparent)]
+    ReqwestError(#[from] reqwest::Error),
+    /// Errors returned by reqwest::header
+    #[error(transparent)]
+    InvalidHeaderValue(#[from] reqwest::header::InvalidHeaderValue),
+    /// Errors returned by reqwest middleware
+    #[error(transparent)]
+    ReqwestMiddleWareError(#[from] reqwest_middleware::Error),
+    /// Generic HTTP Error
+    #[error("HTTP Error. Code: {status}, message: {error}")]
+    HttpError {
+        status: http::StatusCode,
+        error: String,
+    },
+}
+"#);
+
     a("");
 
     a(&format!(
-        r#"pub const DEFAULT_HOST: &str = "https://{}";"#,
+        r#"pub const FALLBACK_HOST: &str = "https://{}";"#,
         host.trim_start_matches("https://")
     ));
     a("");
@@ -2398,35 +2490,50 @@ fn gen(
     a("}");
     a("");
 
+    a(r#"
+#[derive(Debug, Default)]
+pub(crate) struct Message {
+    pub body: Option<reqwest::Body>,
+    pub content_type: Option<String>,
+}"#);
+
     a("");
 
     // Print the client template.
-    if proper_name == "GitHub" {
-        a(crate::client::GITHUB_TEMPLATE);
-    } else if proper_name == "SendGrid"
-        || proper_name == "Giphy"
-        || proper_name == "Rev.ai"
-        || proper_name == "Okta"
-        || proper_name == "ShipBob"
-        || proper_name == "Stripe"
-    {
-        a(&crate::client::generate_client_generic_api_key(
-            proper_name,
-            add_post_header,
-        ));
-    } else if proper_name == "TripActions" {
-        a(&crate::client::generate_client_generic_client_credentials(
-            proper_name,
-            token_endpoint,
-            add_post_header,
-        ));
-    } else {
-        a(&crate::client::generate_client_generic_token(
-            proper_name,
-            token_endpoint,
-            user_consent_endpoint,
-            add_post_header,
-        ));
+    match template_type {
+        TemplateType::Github => {
+            let server_block = if servers.count > 0 {
+                servers.output.as_deref().unwrap()
+            } else {
+                ""
+            };
+            a(server_block);
+            a(crate::client::GITHUB_TEMPLATE);
+        }
+        TemplateType::GenericApiKey => {
+            a(&crate::client::generate_client_generic_api_key(
+                proper_name,
+                add_post_header,
+                servers,
+            ));
+        }
+        TemplateType::GenericClientCredentials => {
+            a(&crate::client::generate_client_generic_client_credentials(
+                proper_name,
+                token_endpoint,
+                add_post_header,
+                servers,
+            ));
+        }
+        TemplateType::GenericToken => {
+            a(&crate::client::generate_client_generic_token(
+                proper_name,
+                token_endpoint,
+                user_consent_endpoint,
+                add_post_header,
+                servers,
+            ));
+        }
     }
 
     a("");
@@ -2557,8 +2664,7 @@ fn clean_name(t: &str) -> String {
             .replace(" is ", " ")
             .replace(" and ", " ")
             .replace(" the ", " ")
-            .replace('/', " ")
-            .replace('-', " "),
+            .replace(['/', '-'], " "),
     )
     .replace("_i_ds", "_ids")
     .replace("v_1_", "")
@@ -2736,7 +2842,7 @@ pub fn clean_fn_name(proper_name: &str, oid: &str, tag: &str) -> String {
     }
 
     f = f
-        .replace(&tag, "")
+        .replace(tag, "")
         .replace(&format!("_{}", tag.trim_end_matches('s')), "")
         .replace("_apps_app", "_app")
         .replace("__", "_")
@@ -2838,7 +2944,9 @@ fn main() -> Result<()> {
         }
     };
 
-    let api = load_api(&args.opt_str("i").unwrap())?;
+    let api = load_api(args.opt_str("i").unwrap())?;
+
+    let servers = client::generate_servers(&api.servers, "Root");
 
     let debug = |s: &str| {
         if args.opt_present("debug") {
@@ -3195,6 +3303,7 @@ fn main() -> Result<()> {
         &token_endpoint,
         &user_consent_endpoint,
         &add_post_header,
+        &servers,
     ) {
         Ok(out) => {
             let description = args.opt_str("d").unwrap();
@@ -3214,15 +3323,14 @@ fn main() -> Result<()> {
                 uuid_lib = r#"
 bytes = { version = "1", features = ["serde"] }
 async-trait = "^0.1.51"
-urlencoding = "^1.3.3"
-uuid = { version = "^0.8", features = ["serde", "v4"] }"#
+uuid = { version = "1.1", features = ["serde", "v4"] }"#
                     .to_string();
             }
 
             if proper_name.starts_with("Google") {
                 yup_oauth2_lib = r#"
-base64 = "^0.12"
-yup-oauth2 = "^5""#
+base64 = "^0.21"
+yup-oauth2 = "^8""#
                     .to_string();
             }
 
@@ -3236,39 +3344,50 @@ version = "{}"
 documentation = "https://docs.rs/{}/"
 repository = "https://github.com/oxidecomputer/third-party-api-clients/tree/main/{}"
 readme = "README.md"
-edition = "2018"
+edition = "2021"
 license = "MIT"
 
+[features]
+default = ["rustls-tls", "reqwest-tracing/opentelemetry_0_17"]
+# enable etag-based http_cache functionality
+httpcache = ["dirs"]
+native-tls = ["reqwest/default-tls", "openssl"]
+rustls-tls = ["reqwest/rustls-tls", "ring", "pem"]
+
 [dependencies]
-anyhow = "1"
-async-recursion = "^0.3.2"
-chrono = {{ version = "0.4", features = ["serde"] }}
+async-recursion = "^1.0"
+chrono = {{ version = "0.4", default-features = false, features = ["serde"] }}
 dirs = {{ version = "^3.0.2", optional = true }}
 http = "^0.2.4"
-hyperx = "1"
-jsonwebtoken = "7"
+jsonwebtoken = "8"
 log = {{ version = "^0.4", features = ["serde"] }}
 mime = "0.3"
-percent-encoding = "2.1"
-reqwest = {{ version = "0.11", features = ["json", "multipart"] }}
+openssl = {{ version = "0.10", default-features = false, optional = true }}
+parse_link_header = "0.3.3"
+pem = {{ version = "1.1.0",  default-features = false, optional = true }}
+percent-encoding = "2.2"
+reqwest = {{ version = "0.11.14", default-features = false, features = ["json", "multipart"] }}
+reqwest-conditional-middleware = "0.1.0"
 reqwest-middleware = "0.1.5"
 reqwest-retry = "0.1.4"
-reqwest-tracing = {{ version = "0.2.1", features = ["opentelemetry_0_17"] }}
-schemars = {{ version = "0.8", features = ["bytes", "chrono", "url", "uuid"] }}
+reqwest-tracing = "0.3.0"
+ring = {{ version = "0.16", default-features = false, optional = true }}
+schemars = {{ version = "0.8", features = ["bytes", "chrono", "url", "uuid1"] }}
 serde = {{ version = "1", features = ["derive"] }}
 serde_json = "1"
 serde_urlencoded = "^0.7"
 url = {{ version = "2", features = ["serde"] }}{}{}
+thiserror = "1"
+tokio = {{ version = "1.25.0", features = ["full"] }}
 
 [dev-dependencies]
-base64 = "^0.12"
+base64 = "^0.13"
 dirs = "^3.0.2"
 nom_pem = "4"
-tokio = {{ version = "1.8.0", features = ["full"] }}
-
-[features]
-# enable etag-based http_cache functionality
-httpcache = ["dirs"]
+rand = "0.8.5"
+rsa = "0.8.1"
+tokio = {{ version = "1.25.0", features = ["test-util"] }}
+wiremock = "0.5.17"
 
 [package.metadata.docs.rs]
 all-features = true
@@ -3281,47 +3400,41 @@ rustdoc-args = ["--cfg", "docsrs"]
             /*
              * Generate our documentation for the library.
              */
-            let docs = if proper_name == "GitHub" {
-                template::generate_docs_github(
+            let docs = match TemplateType::from_proper_name(&proper_name) {
+                TemplateType::Github => template::generate_docs_github(
                     &api,
                     &to_snake_case(&name),
                     &version,
                     &proper_name,
                     host.trim_start_matches("https://"),
                     &spec_link,
-                )
-            } else if proper_name == "SendGrid"
-                || proper_name == "Giphy"
-                || proper_name == "Rev.ai"
-                || proper_name == "Okta"
-                || proper_name == "ShipBob"
-                || proper_name == "Stripe"
-            {
-                template::generate_docs_generic_api_key(
+                ),
+                TemplateType::GenericApiKey => template::generate_docs_generic_api_key(
                     &api,
                     &to_snake_case(&name),
                     &version,
                     &proper_name,
                     &spec_link,
-                )
-            } else if proper_name == "TripActions" {
-                template::generate_docs_generic_client_credentials(
-                    &api,
-                    &to_snake_case(&name),
-                    &version,
-                    &proper_name,
-                    &spec_link,
-                )
-            } else {
-                template::generate_docs_generic_token(
+                ),
+                TemplateType::GenericClientCredentials => {
+                    template::generate_docs_generic_client_credentials(
+                        &api,
+                        &to_snake_case(&name),
+                        &version,
+                        &proper_name,
+                        &spec_link,
+                    )
+                }
+                TemplateType::GenericToken => template::generate_docs_generic_token(
                     &api,
                     &to_snake_case(&name),
                     &version,
                     &proper_name,
                     &spec_link,
                     &add_post_header,
-                )
+                ),
             };
+
             let mut readme = root.clone();
             readme.push("README.md");
             save(
@@ -3344,7 +3457,10 @@ rustdoc-args = ["--cfg", "docsrs"]
             /*
              * Create the Rust source file containing the generated client:
              */
-            let lib = format!("{}\n{}", docs, out);
+            let lib = format!(
+                "{}\n#![allow(clippy::derive_partial_eq_without_eq)]\n{}",
+                docs, out
+            );
             let mut librs = src.clone();
             librs.push("lib.rs");
             save(librs, lib.as_str())?;
@@ -3368,17 +3484,20 @@ rustdoc-args = ["--cfg", "docsrs"]
             /*
              * Create the Rust source files for each of the tags functions:
              */
-            let fail = match functions::generate_files(&api, &proper_name, &mut ts, &parameters) {
+
+            match functions::generate_files(&api, &proper_name, &mut ts, &parameters) {
                 Ok(files) => {
                     // We have a map of our files, let's write to them.
-                    for (f, content) in files {
+                    for (f, output) in files {
                         let mut tagrs = src.clone();
                         tagrs.push(format!("{}.rs", to_snake_case(&clean_name(&f))));
 
                         let output = format!(
-                            r#"use anyhow::Result;
-
+                            r#"
+use crate::ClientResult;
 use crate::Client;
+
+{}
 
 pub struct {} {{
     pub client: Client,
@@ -3395,11 +3514,13 @@ impl {} {{
 
     {}
 }}"#,
+                            output.head,
                             struct_name(&f),
                             struct_name(&f),
                             struct_name(&f),
-                            content,
+                            output.impl_content,
                         );
+
                         save(tagrs, output.as_str())?;
                     }
 
@@ -3409,9 +3530,7 @@ impl {} {{
                     println!("generate_files fail: {:?}", e);
                     true
                 }
-            };
-
-            fail
+            }
         }
         Err(e) => {
             println!("gen fail: {:?}", e);

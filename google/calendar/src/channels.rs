@@ -1,6 +1,5 @@
-use anyhow::Result;
-
 use crate::Client;
+use crate::ClientResult;
 
 pub struct Channels {
     pub client: Client,
@@ -13,14 +12,20 @@ impl Channels {
     }
 
     /**
-    * This function performs a `POST` to the `/channels/stop` endpoint.
-    *
-    * Stop watching resources through this channel
-    */
-    pub async fn stop(&self, body: &crate::types::Channel) -> Result<()> {
-        let url = "/channels/stop".to_string();
+     * This function performs a `POST` to the `/channels/stop` endpoint.
+     *
+     * Stop watching resources through this channel
+     */
+    pub async fn stop(&self, body: &crate::types::Channel) -> ClientResult<()> {
+        let url = self.client.url("/channels/stop", None);
         self.client
-            .post(&url, Some(reqwest::Body::from(serde_json::to_vec(body)?)))
+            .post(
+                &url,
+                crate::Message {
+                    body: Some(reqwest::Body::from(serde_json::to_vec(body)?)),
+                    content_type: Some("application/json".to_string()),
+                },
+            )
             .await
     }
 }

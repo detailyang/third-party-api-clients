@@ -1,6 +1,5 @@
-use anyhow::Result;
-
 use crate::Client;
+use crate::ClientResult;
 
 pub struct SearchCampaigns {
     pub client: Client,
@@ -13,24 +12,24 @@ impl SearchCampaigns {
     }
 
     /**
-    * Search campaigns.
-    *
-    * This function performs a `GET` to the `/search-campaigns` endpoint.
-    *
-    * Search all campaigns for the specified query terms.
-    *
-    * **Parameters:**
-    *
-    * * `fields: &[String]` -- A comma-separated list of fields to return. Reference parameters of sub-objects with dot notation.
-    * * `exclude_fields: &[String]` -- A comma-separated list of fields to return. Reference parameters of sub-objects with dot notation.
-    * * `query: &str` -- The search query used to filter results.
-    */
+     * Search campaigns.
+     *
+     * This function performs a `GET` to the `/search-campaigns` endpoint.
+     *
+     * Search all campaigns for the specified query terms.
+     *
+     * **Parameters:**
+     *
+     * * `fields: &[String]` -- A comma-separated list of fields to return. Reference parameters of sub-objects with dot notation.
+     * * `exclude_fields: &[String]` -- A comma-separated list of fields to return. Reference parameters of sub-objects with dot notation.
+     * * `query: &str` -- The search query used to filter results.
+     */
     pub async fn get(
         &self,
         fields: &[String],
         exclude_fields: &[String],
         query: &str,
-    ) -> Result<crate::types::Campaigns> {
+    ) -> ClientResult<crate::types::Campaigns> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !exclude_fields.is_empty() {
             query_args.push(("exclude_fields".to_string(), exclude_fields.join(" ")));
@@ -42,8 +41,17 @@ impl SearchCampaigns {
             query_args.push(("query".to_string(), query.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/search-campaigns?{}", query_);
-
-        self.client.get(&url, None).await
+        let url = self
+            .client
+            .url(&format!("/search-campaigns?{}", query_), None);
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
 }

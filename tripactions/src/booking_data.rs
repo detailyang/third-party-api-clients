@@ -1,6 +1,5 @@
-use anyhow::Result;
-
 use crate::Client;
+use crate::ClientResult;
 
 pub struct BookingData {
     pub client: Client,
@@ -13,23 +12,23 @@ impl BookingData {
     }
 
     /**
-    * Your company's bookings.
-    *
-    * This function performs a `GET` to the `/v1/bookings` endpoint.
-    *
-    * Return booking rows filtered by the parameters you select.
-    *
-    * **Parameters:**
-    *
-    * * `created_from: &str` -- Filter based on booking created date in epoch seconds.
-    * * `created_to: &str` -- Filter based on booking created date in epoch seconds.
-    * * `start_date_from: &str` -- Filter based on travel start date in epoch seconds.
-    * * `start_date_to: &str` -- Filter based on travel end date in epoch seconds.
-    * * `booking_status: crate::types::BookingStatus` -- Filter based on booking status.
-    * * `page: u64` -- Page cursor for use in pagination.
-    * * `size: i64` -- Number of records returned per page.
-    * * `booking_type: crate::types::BookingType` -- Filter based on Booking type.
-    */
+     * Your company's bookings.
+     *
+     * This function performs a `GET` to the `/v1/bookings` endpoint.
+     *
+     * Return booking rows filtered by the parameters you select.
+     *
+     * **Parameters:**
+     *
+     * * `created_from: &str` -- Filter based on booking created date in epoch seconds.
+     * * `created_to: &str` -- Filter based on booking created date in epoch seconds.
+     * * `start_date_from: &str` -- Filter based on travel start date in epoch seconds.
+     * * `start_date_to: &str` -- Filter based on travel end date in epoch seconds.
+     * * `booking_status: crate::types::BookingStatus` -- Filter based on booking status.
+     * * `page: u64` -- Page cursor for use in pagination.
+     * * `size: i64` -- Number of records returned per page.
+     * * `booking_type: crate::types::BookingType` -- Filter based on Booking type.
+     */
     pub async fn get_booking_report(
         &self,
         created_from: &str,
@@ -40,7 +39,7 @@ impl BookingData {
         page: u64,
         size: i64,
         booking_type: crate::types::BookingType,
-    ) -> Result<Vec<crate::types::BookingReport>> {
+    ) -> ClientResult<Vec<crate::types::BookingReport>> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !booking_status.to_string().is_empty() {
             query_args.push(("bookingStatus".to_string(), booking_status.to_string()));
@@ -67,23 +66,30 @@ impl BookingData {
             query_args.push(("startDateTo".to_string(), start_date_to.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/v1/bookings?{}", query_);
-
-        let resp: crate::types::BookingReportResponse = self.client.get(&url, None).await?;
+        let url = self.client.url(&format!("/v1/bookings?{}", query_), None);
+        let resp: crate::types::BookingReportResponse = self
+            .client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await?;
 
         // Return our response data.
         Ok(resp.data.to_vec())
     }
-
     /**
-    * Your company's bookings.
-    *
-    * This function performs a `GET` to the `/v1/bookings` endpoint.
-    *
-    * As opposed to `get_booking_report`, this function returns all the pages of the request at once.
-    *
-    * Return booking rows filtered by the parameters you select.
-    */
+     * Your company's bookings.
+     *
+     * This function performs a `GET` to the `/v1/bookings` endpoint.
+     *
+     * As opposed to `get_booking_report`, this function returns all the pages of the request at once.
+     *
+     * Return booking rows filtered by the parameters you select.
+     */
     pub async fn get_all_booking_report(
         &self,
         created_from: &str,
@@ -92,7 +98,7 @@ impl BookingData {
         start_date_to: &str,
         booking_status: crate::types::BookingStatus,
         booking_type: crate::types::BookingType,
-    ) -> Result<Vec<crate::types::BookingReport>> {
+    ) -> ClientResult<Vec<crate::types::BookingReport>> {
         let mut query_args: Vec<(String, String)> = Default::default();
         if !booking_status.to_string().is_empty() {
             query_args.push(("bookingStatus".to_string(), booking_status.to_string()));
@@ -113,15 +119,27 @@ impl BookingData {
             query_args.push(("startDateTo".to_string(), start_date_to.to_string()));
         }
         let query_ = serde_urlencoded::to_string(&query_args).unwrap();
-        let url = format!("/v1/bookings?{}", query_);
+        let url = self.client.url(&format!("/v1/bookings?{}", query_), None);
 
         let mut resp: crate::types::BookingReportResponse = if !url.contains('?') {
             self.client
-                .get(&format!("{}?page=0&size=100", url), None)
+                .get(
+                    &format!("{}?page=0&size=100", url),
+                    crate::Message {
+                        body: None,
+                        content_type: None,
+                    },
+                )
                 .await?
         } else {
             self.client
-                .get(&format!("{}&page=0&size=100", url), None)
+                .get(
+                    &format!("{}&page=0&size=100", url),
+                    crate::Message {
+                        body: None,
+                        content_type: None,
+                    },
+                )
                 .await?
         };
 
@@ -133,12 +151,24 @@ impl BookingData {
             if !url.contains('?') {
                 resp = self
                     .client
-                    .get(&format!("{}?page={}", url, page), None)
+                    .get(
+                        &format!("{}?page={}&size=100", url, page),
+                        crate::Message {
+                            body: None,
+                            content_type: None,
+                        },
+                    )
                     .await?;
             } else {
                 resp = self
                     .client
-                    .get(&format!("{}&page={}", url, page), None)
+                    .get(
+                        &format!("{}&page={}&size=100", url, page),
+                        crate::Message {
+                            body: None,
+                            content_type: None,
+                        },
+                    )
                     .await?;
             }
 

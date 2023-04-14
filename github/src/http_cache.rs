@@ -9,7 +9,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{Error, Result};
+use crate::ClientError;
+use crate::ClientResult;
 use http::Uri;
 
 /// A type for an HTTP cache.
@@ -23,10 +24,10 @@ pub trait HttpCache: HttpCacheClone + Debug {
         body: &[u8],
         etag: &[u8],
         next_link: &Option<String>,
-    ) -> Result<()>;
-    fn lookup_etag(&self, uri: &str) -> Result<String>;
-    fn lookup_body(&self, uri: &str) -> Result<String>;
-    fn lookup_next_link(&self, uri: &str) -> Result<Option<String>>;
+    ) -> ClientResult<()>;
+    fn lookup_etag(&self, uri: &str) -> ClientResult<String>;
+    fn lookup_body(&self, uri: &str) -> ClientResult<String>;
+    fn lookup_next_link(&self, uri: &str) -> ClientResult<Option<String>>;
 }
 
 impl dyn HttpCache {
@@ -35,9 +36,17 @@ impl dyn HttpCache {
     }
 
     pub fn in_home_dir() -> BoxedHttpCache {
-        let mut dir = dirs::home_dir().expect("Expected a home dir");
-        dir.push(".github/cache");
-        Box::new(FileBasedCache::new(dir))
+        Self::in_dir(&dirs::home_dir().expect("Expected a home dir"))
+    }
+
+    pub fn in_dir(path: &Path) -> BoxedHttpCache {
+        if path.is_dir() {
+            let mut path = path.to_owned();
+            path.push(".github/cache");
+            Box::new(FileBasedCache::new(path))
+        } else {
+            panic!("Expected a dir");
+        }
     }
 }
 
@@ -52,16 +61,16 @@ impl Clone for BoxedHttpCache {
 pub struct NoCache;
 
 impl HttpCache for NoCache {
-    fn cache_response(&self, _: &str, _: &[u8], _: &[u8], _: &Option<String>) -> Result<()> {
+    fn cache_response(&self, _: &str, _: &[u8], _: &[u8], _: &Option<String>) -> ClientResult<()> {
         Ok(())
     }
-    fn lookup_etag(&self, _uri: &str) -> Result<String> {
+    fn lookup_etag(&self, _uri: &str) -> ClientResult<String> {
         no_read("No etag cached")
     }
-    fn lookup_body(&self, _uri: &str) -> Result<String> {
+    fn lookup_body(&self, _uri: &str) -> ClientResult<String> {
         no_read("No body cached")
     }
-    fn lookup_next_link(&self, _uri: &str) -> Result<Option<String>> {
+    fn lookup_next_link(&self, _uri: &str) -> ClientResult<Option<String>> {
         no_read("No next link cached")
     }
 }
@@ -86,7 +95,7 @@ impl HttpCache for FileBasedCache {
         body: &[u8],
         etag: &[u8],
         next_link: &Option<String>,
-    ) -> Result<()> {
+    ) -> ClientResult<()> {
         let mut path = cache_path(&self.root, uri, "json");
         //println!("caching body at path: {}", path.display());
         if let Some(parent) = path.parent() {
@@ -102,15 +111,15 @@ impl HttpCache for FileBasedCache {
         Ok(())
     }
 
-    fn lookup_etag(&self, uri: &str) -> Result<String> {
+    fn lookup_etag(&self, uri: &str) -> ClientResult<String> {
         read_to_string(cache_path(&self.root, uri, "etag"))
     }
 
-    fn lookup_body(&self, uri: &str) -> Result<String> {
+    fn lookup_body(&self, uri: &str) -> ClientResult<String> {
         read_to_string(cache_path(&self.root, uri, "json"))
     }
 
-    fn lookup_next_link(&self, uri: &str) -> Result<Option<String>> {
+    fn lookup_next_link(&self, uri: &str) -> ClientResult<Option<String>> {
         let path = cache_path(&self.root, uri, "next_link");
         if path.exists() {
             Ok(Some(read_to_string(path)?))
@@ -143,7 +152,7 @@ impl HttpCache for FileBasedCache {
 ///     ),
 ///     PathBuf::from(
 ///         "/home/.github/cache/v1/https/api.github.com/users/dwijnand/repos/6dd58bde8abb0869.\
-///              json"
+///          json"
 ///     ),
 /// );
 /// assert_eq!(
@@ -154,7 +163,7 @@ impl HttpCache for FileBasedCache {
 ///     ),
 ///     PathBuf::from(
 ///         "/home/.github/cache/v1/https/api.github.com/users/dwijnand/repos/d862dcd2d85cebca.\
-///              json"
+///          json"
 ///     ),
 /// );
 /// ```
@@ -177,13 +186,16 @@ pub fn cache_path<S: AsRef<OsStr>>(dir: &Path, uri: &str, extension: S) -> PathB
     path
 }
 
-fn read_to_string<P: AsRef<Path>>(path: P) -> Result<String> {
+fn read_to_string<P: AsRef<Path>>(path: P) -> ClientResult<String> {
     //println!("reading path: {}", path.as_ref().display());
-    fs::read_to_string(path).map_err(Error::from)
+    Ok(fs::read_to_string(path)?)
 }
 
-fn no_read<T, E: Into<Box<dyn std::error::Error + Send + Sync>>>(error: E) -> Result<T> {
-    Err(Error::from(io::Error::new(io::ErrorKind::NotFound, error)))
+fn no_read<T, E: Into<Box<dyn std::error::Error + Send + Sync>>>(error: E) -> ClientResult<T> {
+    Err(ClientError::IoError(io::Error::new(
+        io::ErrorKind::NotFound,
+        error,
+    )))
 }
 
 // Separate to provide a blanket implementation for `T: HttpCache + Clone`

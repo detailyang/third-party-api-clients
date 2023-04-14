@@ -1,6 +1,5 @@
-use anyhow::Result;
-
 use crate::Client;
+use crate::ClientResult;
 
 pub struct Colors {
     pub client: Client,
@@ -13,12 +12,20 @@ impl Colors {
     }
 
     /**
-    * This function performs a `GET` to the `/colors` endpoint.
-    *
-    * Returns the color definitions for calendars and events.
-    */
-    pub async fn get(&self) -> Result<crate::types::Colors> {
-        let url = "/colors".to_string();
-        self.client.get(&url, None).await
+     * This function performs a `GET` to the `/colors` endpoint.
+     *
+     * Returns the color definitions for calendars and events.
+     */
+    pub async fn get(&self) -> ClientResult<crate::types::Colors> {
+        let url = self.client.url("/colors", None);
+        self.client
+            .get(
+                &url,
+                crate::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
 }
